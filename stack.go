@@ -7,7 +7,7 @@ import (
 
 // PanicStack gets the stack as a string, minus the panic frames
 func PanicStack() string {
-	buf := make([]byte, 2048)
+	buf := make([]byte, 4096)
 	runtime.Stack(buf, false)
 	str := string(buf)
 	lines := strings.Split(str, "\n")

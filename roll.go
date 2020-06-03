@@ -86,6 +86,7 @@ func rollDice(input string) ([]int, error) {
 }
 
 func init() {
+	// TO DO: command to output current seed
 	seed := time.Now().UnixNano()
 	rand.Seed(seed)
 
@@ -93,7 +94,7 @@ func init() {
 		aliases: []string{"roll", "r"},
 		callback: func(s *discordgo.Session, m *discordgo.Message, args string) {
 			if !regexp.MustCompile(`^(\d+d\d+\s?)+$`).MatchString(args) {
-				SendReply(s, m, "invalid roll parameters")
+				SendReply(s, m, "invalid roll parameters") // TO DO: use SendError
 				return
 			}
 
@@ -101,7 +102,7 @@ func init() {
 			for _, str := range strings.Fields(args) {
 				res, err := rollDice(str)
 				if err != nil {
-					SendReply(s, m, err.Error())
+					SendReply(s, m, err.Error()) // TO DO: use SendError
 					return
 				}
 				sum := res[0] + res[1]
@@ -109,6 +110,7 @@ func init() {
 				results = append(results, s)
 			}
 
+			// TO DO: improve output
 			_, err := SendEmbed(s, m, &discordgo.MessageEmbed{Description: fmt.Sprintf("`%v`", results)})
 			if err != nil {
 				fmt.Println(err)
@@ -122,6 +124,7 @@ func init() {
 			seed := time.Now().UnixNano()
 			rand.Seed(seed)
 			SendReply(s, m, "seed has been shakened")
+			// TO DO: improve output, use a random 'shake' gif? output new seed
 		},
 	})
 }

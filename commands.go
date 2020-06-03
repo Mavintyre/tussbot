@@ -29,6 +29,7 @@ func HandleCommand(s *discordgo.Session, m *discordgo.Message) {
 		}
 	}()
 
+	// TO DO: prefix in config
 	if !strings.HasPrefix(m.Content, "!") {
 		return
 	}
@@ -63,7 +64,25 @@ func SendReply(s *discordgo.Session, m *discordgo.Message, str string) (*discord
 
 // SendEmbed to a message's source channel with an embed
 func SendEmbed(s *discordgo.Session, m *discordgo.Message, em *discordgo.MessageEmbed) (*discordgo.Message, error) {
+	em.Title = StrMax(em.Title, 256)
 	em.Description = StrMax(em.Description, 2048)
+
+	for len(em.Fields) > 25 {
+		em.Fields = em.Fields[:len(em.Fields)-1]
+	}
+
+	for _, field := range em.Fields {
+		field.Name = StrMax(field.Name, 256)
+		field.Value = StrMax(field.Value, 1024)
+	}
+
+	if em.Footer != nil {
+		em.Footer.Text = StrMax(em.Footer.Text, 2048)
+	}
+
+	if em.Author != nil {
+		em.Author.Name = StrMax(em.Author.Name, 256)
+	}
 
 	nm, err := s.ChannelMessageSendEmbed(m.ChannelID, em)
 	if err != nil {

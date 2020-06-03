@@ -25,6 +25,7 @@ func main() {
 		return
 	}
 
+	// TO DO: implement global Config var to be accessed elsewhere
 	var config configJSON
 	err = json.Unmarshal(confjson, &config)
 	if err != nil {
@@ -57,6 +58,7 @@ func main() {
 }
 
 func ready(s *discordgo.Session, event *discordgo.Ready) {
+	// TO DO: read from file, save and change on command
 	s.UpdateStatus(0, "doin bot stuff")
 }
 
@@ -65,6 +67,7 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		return
 	}
 
+	// TO DO: remove
 	if m.Content == "!test" {
 		SendReply(s, m.Message, "yo waddup")
 	}

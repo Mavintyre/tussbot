@@ -1,6 +1,8 @@
 package main
 
 import (
+	"crypto/md5"
+	"encoding/binary"
 	"fmt"
 	"math"
 	"math/rand"
@@ -8,8 +10,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-
-	"github.com/bwmarrin/discordgo"
 )
 
 type probItem struct {
@@ -86,45 +86,52 @@ func rollDice(input string) ([]int, error) {
 }
 
 func init() {
-	// TO DO: command to output current seed
 	seed := time.Now().UnixNano()
 	rand.Seed(seed)
 
 	RegisterCommand(Command{
 		aliases: []string{"roll", "r"},
-		callback: func(s *discordgo.Session, m *discordgo.Message, args string) {
-			if !regexp.MustCompile(`^(\d+d\d+\s?)+$`).MatchString(args) {
-				SendReply(s, m, "invalid roll parameters") // TO DO: use SendError
+		callback: func(ca CommandArgs) {
+			if !regexp.MustCompile(`^(\d+d\d+\s?)+$`).MatchString(ca.args) {
+				SendError(ca, "invalid roll parameters")
 				return
 			}
 
 			var results [][]int
-			for _, str := range strings.Fields(args) {
+			for _, str := range strings.Fields(ca.args) {
 				res, err := rollDice(str)
 				if err != nil {
-					SendReply(s, m, err.Error()) // TO DO: use SendError
+					SendError(ca, err.Error())
 					return
 				}
-				sum := res[0] + res[1]
-				s := []int{sum, sum}
-				results = append(results, s)
+				results = append(results, res)
 			}
 
 			// TO DO: improve output
-			_, err := SendEmbed(s, m, &discordgo.MessageEmbed{Description: fmt.Sprintf("`%v`", results)})
-			if err != nil {
-				fmt.Println(err)
-			}
+			QuickEmbed(ca, fmt.Sprintf("`%v`", results))
 		},
 	})
 
 	RegisterCommand(Command{
 		aliases: []string{"shake", "seed", "reseed"},
-		callback: func(s *discordgo.Session, m *discordgo.Message, args string) {
+		callback: func(ca CommandArgs) {
+			if ca.args == "" && ca.alias == "seed" {
+				QuickEmbed(ca, fmt.Sprintf("current seed: %v", strconv.Itoa(int(seed))))
+				return
+			}
 			seed := time.Now().UnixNano()
+			if ca.args != "" {
+				data := []byte(ca.args)
+				sum := md5.Sum(data)
+				seed = int64(binary.BigEndian.Uint32(sum[:]))
+			}
 			rand.Seed(seed)
-			SendReply(s, m, "seed has been shakened")
-			// TO DO: improve output, use a random 'shake' gif? output new seed
+			if ca.alias == "shake" {
+				// TO DO: use a random 'shake' gif?
+				SendReply(ca, "seed has been shakened")
+			} else {
+				QuickEmbedT(ca, "roll reseeded", fmt.Sprintf("new seed: %v", strconv.Itoa(int(seed))))
+			}
 		},
 	})
 }

@@ -13,12 +13,21 @@ var CommandList []Command
 // Command definition and parameters
 type Command struct {
 	aliases  []string
-	callback func(*discordgo.Session, *discordgo.Message, string)
+	callback func(CommandArgs)
 }
 
 // RegisterCommand to the bot
 func RegisterCommand(cmd Command) {
 	CommandList = append(CommandList, cmd)
+}
+
+// CommandArgs to be passed around easily
+type CommandArgs struct {
+	sess  *discordgo.Session
+	msg   *discordgo.Message
+	cmd   *Command
+	alias string
+	args  string
 }
 
 // HandleCommand on message event
@@ -29,8 +38,7 @@ func HandleCommand(s *discordgo.Session, m *discordgo.Message) {
 		}
 	}()
 
-	// TO DO: prefix in config
-	if !strings.HasPrefix(m.Content, "!") {
+	if !strings.HasPrefix(m.Content, Config.Prefix) {
 		return
 	}
 	split := strings.SplitN(m.Content[1:], " ", 2)
@@ -44,26 +52,26 @@ func HandleCommand(s *discordgo.Session, m *discordgo.Message) {
 	for _, cmd := range CommandList {
 		for _, a := range cmd.aliases {
 			if a == mname {
-				cmd.callback(s, m, margs)
+				cmd.callback(CommandArgs{sess: s, msg: m, args: margs, alias: mname, cmd: &cmd})
 			}
 		}
 	}
 }
 
 // SendReply to a message's source channel with a string -- returns message and error
-func SendReply(s *discordgo.Session, m *discordgo.Message, str string) (*discordgo.Message, error) {
+func SendReply(ca CommandArgs, str string) (*discordgo.Message, error) {
 	str = StrMax(str, 2000)
 
-	nm, err := s.ChannelMessageSend(m.ChannelID, str)
+	nm, err := ca.sess.ChannelMessageSend(ca.msg.ChannelID, str)
 	if err != nil {
 		err = fmt.Errorf("error sending reply: %w", err)
-		SendError(s, m, err.Error())
+		SendError(ca, err.Error())
 	}
 	return nm, err
 }
 
 // SendEmbed to a message's source channel with an embed
-func SendEmbed(s *discordgo.Session, m *discordgo.Message, em *discordgo.MessageEmbed) (*discordgo.Message, error) {
+func SendEmbed(ca CommandArgs, em *discordgo.MessageEmbed) (*discordgo.Message, error) {
 	em.Title = StrMax(em.Title, 256)
 	em.Description = StrMax(em.Description, 2048)
 
@@ -84,18 +92,30 @@ func SendEmbed(s *discordgo.Session, m *discordgo.Message, em *discordgo.Message
 		em.Author.Name = StrMax(em.Author.Name, 256)
 	}
 
-	nm, err := s.ChannelMessageSendEmbed(m.ChannelID, em)
+	nm, err := ca.sess.ChannelMessageSendEmbed(ca.msg.ChannelID, em)
 	if err != nil {
 		err = fmt.Errorf("error sending embed: %w", err)
-		SendError(s, m, err.Error())
+		SendError(ca, err.Error())
 	}
 	return nm, err
 }
 
+// QuickEmbedT sends a quick title and description embed
+func QuickEmbedT(ca CommandArgs, title string, content string) (*discordgo.Message, error) {
+	em := &discordgo.MessageEmbed{Title: title, Description: content}
+	return SendEmbed(ca, em)
+}
+
+// QuickEmbed sends a quick description-only embed
+func QuickEmbed(ca CommandArgs, content string) (*discordgo.Message, error) {
+	em := &discordgo.MessageEmbed{Description: content}
+	return SendEmbed(ca, em)
+}
+
 // SendError to a message's source channel with special error formatting
-func SendError(s *discordgo.Session, m *discordgo.Message, str string) {
+func SendError(ca CommandArgs, str string) {
 	// not using SendEmbed here so we don't get stuck in a SendError loop
-	_, err := s.ChannelMessageSendEmbed(m.ChannelID, &discordgo.MessageEmbed{Title: "error", Description: StrMax(str, 2000), Color: 0xff0000})
+	_, err := ca.sess.ChannelMessageSendEmbed(ca.msg.ChannelID, &discordgo.MessageEmbed{Title: "error", Description: StrMax(str, 2000), Color: 0xff0000})
 	if err != nil {
 		err = fmt.Errorf("error sending error: %w", err)
 		fmt.Println(err)

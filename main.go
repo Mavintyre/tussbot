@@ -14,7 +14,11 @@ import (
 type configJSON struct {
 	Token   string
 	OwnerID string
+	Prefix  string
 }
+
+// Config JSON
+var Config configJSON
 
 func main() {
 	fmt.Println("initializing...")
@@ -25,15 +29,13 @@ func main() {
 		return
 	}
 
-	// TO DO: implement global Config var to be accessed elsewhere
-	var config configJSON
-	err = json.Unmarshal(confjson, &config)
+	err = json.Unmarshal(confjson, &Config)
 	if err != nil {
 		fmt.Println("JSON error", err)
 		return
 	}
 
-	discord, err := discordgo.New("Bot " + config.Token)
+	discord, err := discordgo.New("Bot " + Config.Token)
 	if err != nil {
 		fmt.Println("Error creating Discord session", err)
 		return
@@ -67,10 +69,6 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		return
 	}
 
-	// TO DO: remove
-	if m.Content == "!test" {
-		SendReply(s, m.Message, "yo waddup")
-	}
-
+	// TO DO: is 'go' here necessary? (lib spawns messageCreate with go)
 	go HandleCommand(s, m.Message)
 }

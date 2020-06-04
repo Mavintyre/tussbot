@@ -11,8 +11,8 @@ func Clamp(num int, min int, max int) int {
 	return num
 }
 
-// StrMax returns a string with max length
-func StrMax(str string, max int) string {
+// StrClamp returns a string clamped to max length
+func StrClamp(str string, max int) string {
 	length := len(str)
 	if length > max {
 		return str[:max]

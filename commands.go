@@ -60,7 +60,7 @@ func HandleCommand(s *discordgo.Session, m *discordgo.Message) {
 
 // SendReply to a message's source channel with a string -- returns message and error
 func SendReply(ca CommandArgs, str string) (*discordgo.Message, error) {
-	str = StrMax(str, 2000)
+	str = StrClamp(str, 2000)
 
 	nm, err := ca.sess.ChannelMessageSend(ca.msg.ChannelID, str)
 	if err != nil {
@@ -72,24 +72,24 @@ func SendReply(ca CommandArgs, str string) (*discordgo.Message, error) {
 
 // SendEmbed to a message's source channel with an embed
 func SendEmbed(ca CommandArgs, em *discordgo.MessageEmbed) (*discordgo.Message, error) {
-	em.Title = StrMax(em.Title, 256)
-	em.Description = StrMax(em.Description, 2048)
+	em.Title = StrClamp(em.Title, 256)
+	em.Description = StrClamp(em.Description, 2048)
 
 	for len(em.Fields) > 25 {
 		em.Fields = em.Fields[:len(em.Fields)-1]
 	}
 
 	for _, field := range em.Fields {
-		field.Name = StrMax(field.Name, 256)
-		field.Value = StrMax(field.Value, 1024)
+		field.Name = StrClamp(field.Name, 256)
+		field.Value = StrClamp(field.Value, 1024)
 	}
 
 	if em.Footer != nil {
-		em.Footer.Text = StrMax(em.Footer.Text, 2048)
+		em.Footer.Text = StrClamp(em.Footer.Text, 2048)
 	}
 
 	if em.Author != nil {
-		em.Author.Name = StrMax(em.Author.Name, 256)
+		em.Author.Name = StrClamp(em.Author.Name, 256)
 	}
 
 	nm, err := ca.sess.ChannelMessageSendEmbed(ca.msg.ChannelID, em)
@@ -115,9 +115,11 @@ func QuickEmbed(ca CommandArgs, content string) (*discordgo.Message, error) {
 // SendError to a message's source channel with special error formatting
 func SendError(ca CommandArgs, str string) {
 	// not using SendEmbed here so we don't get stuck in a SendError loop
-	_, err := ca.sess.ChannelMessageSendEmbed(ca.msg.ChannelID, &discordgo.MessageEmbed{Title: "error", Description: StrMax(str, 2000), Color: 0xff0000})
+	_, err := ca.sess.ChannelMessageSendEmbed(ca.msg.ChannelID, &discordgo.MessageEmbed{Title: "error", Description: StrClamp(str, 2000), Color: 0xff0000})
 	if err != nil {
 		err = fmt.Errorf("error sending error: %w", err)
 		fmt.Println(err)
 	}
 }
+
+// TO DO: help command

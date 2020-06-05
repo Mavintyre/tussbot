@@ -130,14 +130,13 @@ func (s *Session) Start(url string, vc *discordgo.VoiceConnection, done chan err
 	s.streamvc = vc
 	s.Unlock() // unlock early
 
-	go s.StartStream()
-
 	var wg sync.WaitGroup
 	wg.Add(2)
-	go s.readStderr(stderr, &wg)
 	go s.readStdout(stdout, &wg)
-	wg.Wait()
+	go s.readStderr(stderr, &wg)
+	go s.StartStream()
 
+	wg.Wait()
 	err = cmd.Wait()
 	if err != nil {
 		if err.Error() != "signal: killed" {

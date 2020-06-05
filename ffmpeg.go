@@ -52,7 +52,7 @@ var frameDuration = 20 // 20, 40, or 60 ms
 //	get session.time() & update embed
 
 // Start an ffmpeg session and begin streaming
-//	`done`channel can signal io.EOF for natural end of stream or a legitimate error
+//	`done` channel can signal io.EOF for natural end of stream or a legitimate error
 func (s *Session) Start(url string, vc *discordgo.VoiceConnection, done chan error) {
 	defer s.Unlock()
 
@@ -238,7 +238,7 @@ func (s *Session) StartStream() {
 	}
 
 	for {
-		if s.paused {
+		if s.paused || !s.streaming {
 			return
 		}
 		s.Unlock() // unlock early
@@ -265,7 +265,10 @@ func (s *Session) StartStream() {
 		s.framesSent++
 		s.Unlock()
 	}
+
+	s.Lock()
 	s.streaming = false
+	s.Unlock()
 }
 
 // Time returns current playback position
@@ -303,8 +306,7 @@ func (s *Session) StopEncoder() {
 	}
 }
 
-// StopStream currently only sets streaming=false
-//	possibly expand this to clean up later (if needed?)
+// StopStream sets streaming=false, stopping the streaming loop goroutine
 func (s *Session) StopStream() {
 	s.Lock()
 	defer s.Unlock()

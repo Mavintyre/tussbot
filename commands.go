@@ -115,6 +115,12 @@ func QuickEmbedT(ca CommandArgs, title string, content string) (*discordgo.Messa
 	return SendEmbed(ca, em)
 }
 
+// QuickEmbedF sends a quick description and footer embed
+func QuickEmbedF(ca CommandArgs, content string, footer string) (*discordgo.Message, error) {
+	em := &discordgo.MessageEmbed{Description: content, Footer: &discordgo.MessageEmbedFooter{Text: footer}}
+	return SendEmbed(ca, em)
+}
+
 // QuickEmbed sends a quick description-only embed
 func QuickEmbed(ca CommandArgs, content string) (*discordgo.Message, error) {
 	em := &discordgo.MessageEmbed{Description: content}

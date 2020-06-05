@@ -95,6 +95,8 @@ func init() {
 		aliases: []string{"roll", "r"},
 		callback: func(ca CommandArgs) {
 			// TO DO: allow omission of number of rolls to default to 1
+			// TO DO: optimization for 1d6, don't use probtable, just generate 1-6
+			// TO DO: exploding die: on max roll, add another die (no table)
 
 			// TO DO: gm roll
 			//	- get first member of gm role in channel
@@ -102,15 +104,22 @@ func init() {
 			//	- command to set gm role name
 			//	- store role id in per-guild json
 
-			// TO DO: generic extra args that are reiterated as tags in the output
-
-			if !regexp.MustCompile(`^(\d+d\d+\s?)+$`).MatchString(ca.args) {
+			regex := regexp.MustCompile(`^(\d+d\d+\s?)+( [\w ]+)?$`)
+			if !regex.MatchString(ca.args) {
 				SendError(ca, "invalid roll parameters")
 				return
 			}
 
+			groups := regex.FindAllStringSubmatch(ca.args, -1)
+			if len(groups) == 0 || len(groups[0]) < 3 {
+				SendError(ca, "error matching regex")
+				return
+			}
+			rollstr := groups[0][1]
+			tags := groups[0][2]
+
 			var results []string
-			for _, str := range strings.Fields(ca.args) {
+			for _, str := range strings.Fields(rollstr) {
 				var setres []string
 				vals, err := rollDice(str)
 				if err != nil {
@@ -123,16 +132,16 @@ func init() {
 				results = append(results, strings.Join(setres, " "))
 			}
 
-			if len(results) == 1 {
-				QuickEmbed(ca, results[0])
-			} else {
-				QuickEmbed(ca, strings.Join(results, "  **--**  "))
+			retstr := results[0]
+			if len(results) > 1 {
+				retstr = strings.Join(results, "  **--**  ")
 			}
+			QuickEmbedF(ca, retstr, tags)
 		},
 	})
 
 	RegisterCommand(Command{
-		aliases: []string{"seed", "reseed"},
+		aliases: []string{"seed"},
 		callback: func(ca CommandArgs) {
 			if ca.args == "" && ca.alias == "seed" {
 				QuickEmbed(ca, fmt.Sprintf("current seed: %v", seedstr))

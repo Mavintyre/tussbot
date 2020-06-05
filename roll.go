@@ -126,6 +126,9 @@ func init() {
 		},
 	})
 
+	// TO DO: prefix time to args seed so it can't be manipulated?
+	//  - or: do an random (arbitrary|based on time) number of rolls to avoid manip
+	//	- or: keep a log of seeds used and when, deny if time is too soon and new seed is the same (or num rolls with seed is too low?)
 	RegisterCommand(Command{
 		aliases: []string{"seed", "reseed"},
 		callback: func(ca CommandArgs) {
@@ -138,7 +141,7 @@ func init() {
 			if ca.args != "" {
 				data := []byte(ca.args)
 				sum := md5.Sum(data)
-				seed = int64(binary.BigEndian.Uint32(sum[:]))
+				seed = int64(binary.BigEndian.Uint64(sum[:]))
 				footer = fmt.Sprintf("`%s` hashed to unique numerical value", ca.args)
 			}
 			rand.Seed(seed)

@@ -65,6 +65,10 @@ func rollDice(input string) ([]int, error) {
 	numDice, _ := strconv.ParseFloat(split[0], 64)
 	diceVal, _ := strconv.Atoi(split[1])
 
+	if numDice < 1 || diceVal <= 1 {
+		return nil, errors.New("nothing to roll")
+	}
+
 	maxProb := math.Pow(float64(diceVal), numDice)
 	if int64(maxProb-1) < 0 {
 		return nil, errors.New("probability too high to compute")

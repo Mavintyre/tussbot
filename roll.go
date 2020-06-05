@@ -123,10 +123,10 @@ func init() {
 				results = append(results, strings.Join(setres, " "))
 			}
 
-			if len(results) > 1 {
-				QuickEmbed(ca, strings.Join(results, "  **--**  "))
-			} else {
+			if len(results) == 1 {
 				QuickEmbed(ca, results[0])
+			} else {
+				QuickEmbed(ca, strings.Join(results, "  **--**  "))
 			}
 		},
 	})

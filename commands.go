@@ -32,6 +32,7 @@ type CommandArgs struct {
 
 // HandleCommand on message event
 func HandleCommand(s *discordgo.Session, m *discordgo.Message) {
+	// TO DO: pm owner on panic
 	defer func() {
 		if r := recover(); r != nil {
 			fmt.Println("<Recovered panic in HandleCommand>", PanicStack())

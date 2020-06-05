@@ -127,9 +127,6 @@ func init() {
 		},
 	})
 
-	// TO DO: prefix time to args seed so it can't be manipulated?
-	//  - or: do an random (arbitrary|based on time) number of rolls to avoid manip
-	//	- or: keep a log of seeds used and when, deny if time is too soon and new seed is the same (or num rolls with seed is too low?)
 	RegisterCommand(Command{
 		aliases: []string{"seed", "reseed"},
 		callback: func(ca CommandArgs) {
@@ -148,6 +145,29 @@ func init() {
 			rand.Seed(seed)
 			seedstr = strconv.Itoa(int(seed))
 
+			// iterate through seed to mitigate seed restart manipulation
+			if ca.args != "" {
+				timestr := strconv.Itoa(int(time.Now().UnixNano()))
+				lastdigits, err := strconv.ParseInt(timestr[:3], 10, 64)
+				if err != nil {
+					SendError(ca, fmt.Sprintf("error iterating new seed: %s", err.Error()))
+					return
+				}
+				// TO DO:
+				//	- is this too resource intensive?
+				//	- is this too possible to get a pattern from?
+				//	- should we store number of times a seed has been used instead?
+				//		- keep a log of seeds used and when
+				//			- deny if time is too soon and new seed is the same
+				//			- (or num rolls with seed is too low?)
+				//	- do an random (arbitrary|based on time) number of rolls (below)
+				iters := int(lastdigits) + 1000
+				buf := make([]byte, iters)
+				rand.Read(buf)
+				// for i := 0; i < iters; i++ {
+				// 	rand.Int63()
+				// }
+			}
 
 			content := fmt.Sprintf("new seed: %v", seedstr)
 			if footer != "" {

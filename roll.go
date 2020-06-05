@@ -106,23 +106,23 @@ func init() {
 				return
 			}
 
-			var results [][]int
+			var results []string
 			for _, str := range strings.Fields(ca.args) {
-				res, err := rollDice(str)
+				var setres []string
+				vals, err := rollDice(str)
 				if err != nil {
 					SendError(ca, err.Error())
 					return
 				}
-				results = append(results, res)
+				for _, die := range vals {
+					setres = append(setres, fmt.Sprintf("`[%v]`", die))
+				}
+				results = append(results, strings.Join(setres, " "))
 			}
 
-			// TO DO: improve output
-			if ca.args == "2d6" {
-				QuickEmbed(ca, fmt.Sprintf("`[%v]` `[%v]`", results[0][0], results[0][1]))
-				return
+			if len(results) > 1 {
+				QuickEmbed(ca, strings.Join(results, "  **-**  "))
 			}
-
-			QuickEmbed(ca, fmt.Sprintf("`%v`", results))
 		},
 	})
 

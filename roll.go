@@ -127,26 +127,28 @@ func init() {
 	})
 
 	RegisterCommand(Command{
-		aliases: []string{"shake", "seed", "reseed"},
+		aliases: []string{"seed", "reseed"},
 		callback: func(ca CommandArgs) {
 			if ca.args == "" && ca.alias == "seed" {
 				QuickEmbed(ca, fmt.Sprintf("current seed: %v", strconv.Itoa(int(seed))))
 				return
 			}
 			seed = time.Now().UnixNano()
+			footer := ""
 			if ca.args != "" {
 				data := []byte(ca.args)
 				sum := md5.Sum(data)
 				seed = int64(binary.BigEndian.Uint32(sum[:]))
+				footer = fmt.Sprintf("`%s` hashed to unique numerical value", ca.args)
 			}
 			rand.Seed(seed)
-			if ca.alias == "shake" {
-				// TO DO: use a random 'shake' gif? or remove shake
-				SendReply(ca, "seed has been shakened (random seed)")
-			} else {
-				// TO DO: clarify that string is converted to numerical value
-				QuickEmbedT(ca, "roll reseeded", fmt.Sprintf("new seed: %v", strconv.Itoa(int(seed))))
+
+			content := fmt.Sprintf("new seed: %v", strconv.Itoa(int(seed)))
+			if footer != "" {
+				QuickEmbedTF(ca, "roll reseeded", content, footer)
+				return
 			}
+			QuickEmbedT(ca, "roll reseeded", content)
 		},
 	})
 }

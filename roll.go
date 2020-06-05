@@ -3,6 +3,7 @@ package main
 import (
 	"crypto/md5"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"math"
 	"math/rand"
@@ -66,7 +67,7 @@ func rollDice(input string) ([]int, error) {
 
 	maxProb := math.Pow(float64(diceVal), numDice)
 	if int64(maxProb-1) < 0 {
-		return nil, fmt.Errorf("probability too high to compute")
+		return nil, errors.New("probability too high to compute")
 	}
 
 	valSpan := maxProb / float64(diceVal)
@@ -93,7 +94,12 @@ func init() {
 		aliases: []string{"roll", "r"},
 		callback: func(ca CommandArgs) {
 			// TO DO: allow omission of number of rolls to default to 1
-			// TO DO: gm roll (use gm role in channel)
+
+			// TO DO: gm roll
+			//	- get first member of gm role in channel
+			//	- if no gm role or gm member found, error
+			//	- command to set gm role name
+			//	- store role id in per-guild json
 
 			if !regexp.MustCompile(`^(\d+d\d+\s?)+$`).MatchString(ca.args) {
 				SendError(ca, "invalid roll parameters")

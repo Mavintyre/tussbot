@@ -21,11 +21,11 @@ type configJSON struct {
 var Config configJSON
 
 func main() {
-	fmt.Println("initializing...")
+	fmt.Println("Initializing...")
 
 	confjson, err := ioutil.ReadFile("config.json")
 	if err != nil {
-		fmt.Println("config.json not found")
+		fmt.Println("Unable to read config.json")
 		return
 	}
 
@@ -55,12 +55,12 @@ func main() {
 	signal.Notify(sc, syscall.SIGINT, syscall.SIGTERM, os.Interrupt, os.Kill)
 	<-sc
 
-	fmt.Println("shutting down...")
+	fmt.Println("Shutting down...")
 	discord.Close()
 }
 
 func ready(s *discordgo.Session, event *discordgo.Ready) {
-	// TO DO: read from file, save and change on command
+	// TO DO: read from config, save and change on command
 	s.UpdateStatus(0, "doin bot stuff")
 }
 

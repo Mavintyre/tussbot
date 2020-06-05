@@ -34,7 +34,7 @@ type CommandArgs struct {
 func HandleCommand(s *discordgo.Session, m *discordgo.Message) {
 	defer func() {
 		if r := recover(); r != nil {
-			fmt.Println(fmt.Errorf("<Recovered panic in HandleCommand>\n%s", PanicStack()))
+			fmt.Println("<Recovered panic in HandleCommand>", PanicStack())
 		}
 	}()
 
@@ -64,7 +64,7 @@ func SendReply(ca CommandArgs, str string) (*discordgo.Message, error) {
 
 	nm, err := ca.sess.ChannelMessageSend(ca.msg.ChannelID, str)
 	if err != nil {
-		err = fmt.Errorf("error sending reply: %w", err)
+		err = fmt.Errorf("error sending reply in %s: %w", GetChannelName(ca.sess, ca.msg.ChannelID), err)
 		SendError(ca, err.Error())
 	}
 	return nm, err
@@ -94,7 +94,7 @@ func SendEmbed(ca CommandArgs, em *discordgo.MessageEmbed) (*discordgo.Message, 
 
 	nm, err := ca.sess.ChannelMessageSendEmbed(ca.msg.ChannelID, em)
 	if err != nil {
-		err = fmt.Errorf("error sending embed: %w", err)
+		err = fmt.Errorf("error sending embed in %s: %w", GetChannelName(ca.sess, ca.msg.ChannelID), err)
 		SendError(ca, err.Error())
 	}
 	return nm, err
@@ -117,7 +117,7 @@ func SendError(ca CommandArgs, str string) {
 	// not using SendEmbed here so we don't get stuck in a SendError loop
 	_, err := ca.sess.ChannelMessageSendEmbed(ca.msg.ChannelID, &discordgo.MessageEmbed{Title: "error", Description: StrClamp(str, 2000), Color: 0xff0000})
 	if err != nil {
-		err = fmt.Errorf("error sending error: %w", err)
+		err = fmt.Errorf("error sending error in %s: %w", GetChannelName(ca.sess, ca.msg.ChannelID), err)
 		fmt.Println(err)
 	}
 }

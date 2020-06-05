@@ -122,7 +122,9 @@ func init() {
 			}
 
 			if len(results) > 1 {
-				QuickEmbed(ca, strings.Join(results, "  **-**  "))
+				QuickEmbed(ca, strings.Join(results, "  **--**  "))
+			} else {
+				QuickEmbed(ca, results[0])
 			}
 		},
 	})
@@ -140,8 +142,8 @@ func init() {
 				data := []byte(ca.args)
 				sum := md5.Sum(data)
 				seed = int64(binary.BigEndian.Uint64(sum[:]))
-				seed += time.Now().UnixNano() // crude attempt to mitigate seed restart manipulation
-				footer = fmt.Sprintf("`%s` hashed to unique numerical value", ca.args)
+				seed %= time.Now().UnixNano() // crude attempt to mitigate seed restart manipulation
+				footer = fmt.Sprintf("\"%s\" hashed to numerical value and\nmodulated by time to mitigate manipulation", ca.args)
 			}
 			rand.Seed(seed)
 			seedstr = strconv.Itoa(int(seed))

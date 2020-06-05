@@ -102,6 +102,8 @@ func init() {
 			//	- command to set gm role name
 			//	- store role id in per-guild json
 
+			// TO DO: generic extra args that are reiterated as tags in the output
+
 			if !regexp.MustCompile(`^(\d+d\d+\s?)+$`).MatchString(ca.args) {
 				SendError(ca, "invalid roll parameters")
 				return

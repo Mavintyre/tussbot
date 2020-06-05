@@ -88,6 +88,7 @@ func rollDice(input string) ([]int, error) {
 
 func init() {
 	seed := time.Now().UnixNano()
+	seedstr := strconv.Itoa(int(seed))
 	rand.Seed(seed)
 
 	RegisterCommand(Command{
@@ -133,7 +134,7 @@ func init() {
 		aliases: []string{"seed", "reseed"},
 		callback: func(ca CommandArgs) {
 			if ca.args == "" && ca.alias == "seed" {
-				QuickEmbed(ca, fmt.Sprintf("current seed: %v", strconv.Itoa(int(seed))))
+				QuickEmbed(ca, fmt.Sprintf("current seed: %v", seedstr))
 				return
 			}
 			seed = time.Now().UnixNano()
@@ -145,8 +146,10 @@ func init() {
 				footer = fmt.Sprintf("`%s` hashed to unique numerical value", ca.args)
 			}
 			rand.Seed(seed)
+			seedstr = strconv.Itoa(int(seed))
 
-			content := fmt.Sprintf("new seed: %v", strconv.Itoa(int(seed)))
+
+			content := fmt.Sprintf("new seed: %v", seedstr)
 			if footer != "" {
 				QuickEmbedTF(ca, "roll reseeded", content, footer)
 				return

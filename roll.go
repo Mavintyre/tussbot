@@ -94,6 +94,8 @@ func init() {
 	RegisterCommand(Command{
 		aliases: []string{"roll", "r"},
 		callback: func(ca CommandArgs) {
+			// TO DO: keep stats of rolls cumulative & per user
+			//	- distribution, set runs, consequtive runs
 			// TO DO: allow omission of number of rolls to default to 1
 			// TO DO: optimization for 1d6, don't use probtable, just generate 1-6
 			// TO DO: exploding die: on max roll, add another die (no table)
@@ -103,6 +105,8 @@ func init() {
 			//	- if no gm role or gm member found, error
 			//	- command to set gm role name
 			//	- store role id in per-guild json
+			//	- if gm rolls, send only to gm
+			//	- if player rolls, send to gm and player
 
 			regex := regexp.MustCompile(`^(\d+d\d+\s?)+( [\w ]+)?$`)
 			if !regex.MatchString(ca.args) {

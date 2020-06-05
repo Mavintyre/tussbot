@@ -69,6 +69,6 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		return
 	}
 
-	// TO DO: is 'go' here necessary? (lib spawns messageCreate with go)
-	go HandleCommand(s, m.Message)
+	// TO DO: is 'go' here necessary? (lib should spawn messageCreate with go)
+	HandleCommand(s, m.Message)
 }

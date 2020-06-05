@@ -92,6 +92,9 @@ func init() {
 	RegisterCommand(Command{
 		aliases: []string{"roll", "r"},
 		callback: func(ca CommandArgs) {
+			// TO DO: allow omission of number of rolls to default to 1
+			// TO DO: gm roll (use gm role in channel)
+
 			if !regexp.MustCompile(`^(\d+d\d+\s?)+$`).MatchString(ca.args) {
 				SendError(ca, "invalid roll parameters")
 				return
@@ -108,6 +111,11 @@ func init() {
 			}
 
 			// TO DO: improve output
+			if ca.args == "2d6" {
+				QuickEmbed(ca, fmt.Sprintf("`[%v]` `[%v]`", results[0][0], results[0][1]))
+				return
+			}
+
 			QuickEmbed(ca, fmt.Sprintf("`%v`", results))
 		},
 	})
@@ -119,7 +127,7 @@ func init() {
 				QuickEmbed(ca, fmt.Sprintf("current seed: %v", strconv.Itoa(int(seed))))
 				return
 			}
-			seed := time.Now().UnixNano()
+			seed = time.Now().UnixNano()
 			if ca.args != "" {
 				data := []byte(ca.args)
 				sum := md5.Sum(data)
@@ -127,8 +135,8 @@ func init() {
 			}
 			rand.Seed(seed)
 			if ca.alias == "shake" {
-				// TO DO: use a random 'shake' gif?
-				SendReply(ca, "seed has been shakened")
+				// TO DO: use a random 'shake' gif? or remove shake
+				SendReply(ca, "seed has been shakened (random seed)")
 			} else {
 				QuickEmbedT(ca, "roll reseeded", fmt.Sprintf("new seed: %v", strconv.Itoa(int(seed))))
 			}

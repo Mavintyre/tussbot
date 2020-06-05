@@ -38,6 +38,9 @@ func HandleCommand(s *discordgo.Session, m *discordgo.Message) {
 		}
 	}()
 
+	// TO DO: allow commands without prefix
+	//	- how to achieve pasting urls with this? regex aliases?
+	//	- DEFINITELY restrict bot to one channel when doing this
 	if !strings.HasPrefix(m.Content, Config.Prefix) {
 		return
 	}

@@ -25,16 +25,16 @@ type frame struct {
 // Session of ffmpeg encoder & streamer
 type Session struct {
 	sync.Mutex
-	running      bool
-	streaming    bool
-	started      time.Time
-	process      *os.Process
-	frameChannel chan *frame
-	done         chan error
-	paused       bool
-	volume       float64
-	framesSent   int
-	streamvc     *discordgo.VoiceConnection
+	running     bool
+	streaming   bool
+	started     time.Time
+	ffmpeg      *os.Process
+	frameBuffer chan *frame
+	done        chan error
+	paused      bool
+	volume      float64
+	framesSent  int
+	streamvc    *discordgo.VoiceConnection
 }
 
 var frameDuration = 20 // 20, 40, or 60 ms
@@ -61,7 +61,7 @@ func (s *Session) Start(url string, vc *discordgo.VoiceConnection, done chan err
 		s.Stop()
 	}
 
-	defer close(s.frameChannel)
+	defer close(s.frameBuffer)
 	s.running = true
 
 	args := []string{
@@ -126,7 +126,7 @@ func (s *Session) Start(url string, vc *discordgo.VoiceConnection, done chan err
 	}
 
 	s.started = time.Now()
-	s.process = cmd.Process
+	s.ffmpeg = cmd.Process
 	s.streamvc = vc
 	s.Unlock() // unlock early
 
@@ -209,13 +209,13 @@ func (s *Session) writeDCAFrame(opusFrame []byte) error {
 		return err
 	}
 
-	s.frameChannel <- &frame{dcaBuf.Bytes(), false}
+	s.frameBuffer <- &frame{dcaBuf.Bytes(), false}
 	return nil
 }
 
-// Frame returns a single frame of DCA encoded Opus
-func (s *Session) Frame() (frame []byte, err error) {
-	f := <-s.frameChannel
+// GetFrame returns a single frame of DCA encoded Opus
+func (s *Session) GetFrame() (frame []byte, err error) {
+	f := <-s.frameBuffer
 	if f == nil {
 		return nil, io.EOF
 	}
@@ -243,7 +243,7 @@ func (s *Session) StartStream() {
 		s.Unlock() // unlock early
 
 		s.streaming = true
-		frame, err := s.Frame()
+		frame, err := s.GetFrame()
 		if err != nil {
 			s.done <- fmt.Errorf("error getting dca frame: %w", err)
 			break
@@ -270,8 +270,8 @@ func (s *Session) StartStream() {
 	s.Unlock()
 }
 
-// Time returns current playback position
-func (s *Session) Time() time.Duration {
+// CurrentTime returns current playback position
+func (s *Session) CurrentTime() time.Duration {
 	s.Lock()
 	defer s.Unlock()
 	return time.Duration(s.framesSent) * time.Duration(frameDuration) * time.Millisecond
@@ -295,12 +295,12 @@ func (s *Session) StopEncoder() {
 	s.Lock()
 	defer s.Unlock()
 
-	if s.process != nil {
-		s.process.Kill()
+	if s.ffmpeg != nil {
+		s.ffmpeg.Kill()
 	}
 	s.running = false
 
-	for range s.frameChannel {
+	for range s.frameBuffer {
 		// empty remaining frames
 	}
 }

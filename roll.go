@@ -144,6 +144,7 @@ func init() {
 				// TO DO: use a random 'shake' gif? or remove shake
 				SendReply(ca, "seed has been shakened (random seed)")
 			} else {
+				// TO DO: clarify that string is converted to numerical value
 				QuickEmbedT(ca, "roll reseeded", fmt.Sprintf("new seed: %v", strconv.Itoa(int(seed))))
 			}
 		},

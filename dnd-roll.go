@@ -107,8 +107,6 @@ func init() {
 		callback: func(ca CommandArgs) {
 			// TO DO: keep stats of rolls cumulative & per user
 			//	- distribution, set runs, consequtive runs
-			// TO DO: exploding die: on max roll, add another die (no table)
-			//		- !roll 2d6x
 			// TO DO: 2d6+1 or 2d6-1 syntax for bonus/minus die
 			// TO DO: custom die
 			//		- roll as name !roll 2dZ or 2dZoop
@@ -119,7 +117,6 @@ func init() {
 			//		- if deleting die, remove emojis
 			//		- if !set a die, remove emojis for faces that no longer exist (by name or index?)
 			//		- if !setface remove all old emoji -- if no new emoji is given, emoji is removed
-			// TO DO: (option?) show sum of die
 
 			// TO DO: gm roll
 			//	- get first member of gm role in channel
@@ -132,7 +129,7 @@ func init() {
 			//	- !delgmrole
 			//	- !roll gm 2d6
 
-			regex := regexp.MustCompile(`^((?:\d*d\d+\s?)+)\s?([\w ]+)?$`)
+			regex := regexp.MustCompile(`^((?:\d*d\d+(?:[!#]+)?\s?)+)\s?([\w ]+)?$`)
 			if !regex.MatchString(ca.args) {
 				SendError(ca, "invalid roll parameters\ncheck `%Phelp roll` for usage")
 				return
@@ -154,6 +151,20 @@ func init() {
 				}
 
 				split := strings.Split(str, "d")
+
+				exploding := false
+				getSum := false
+				for strings.HasSuffix(split[1], "!") || strings.HasSuffix(split[1], "#") {
+					if strings.HasSuffix(split[1], "!") {
+						exploding = true
+						split[1] = strings.Replace(split[1], "!", "", -1)
+					}
+					if strings.HasSuffix(split[1], "#") {
+						getSum = true
+						split[1] = strings.Replace(split[1], "#", "", -1)
+					}
+				}
+
 				numDice, err := strconv.ParseFloat(split[0], 64)
 				if err != nil {
 					SendError(ca, "couldn't parse number of dice"+err.Error())
@@ -165,21 +176,41 @@ func init() {
 					return
 				}
 
+				var vals []int
 				if numDice == 1 {
-					num := rand.Int63n(int64(diceVal)) + 1
-					results = append(results, fmt.Sprintf("`[%v]`", num))
-					continue
+					num := int(rand.Int63n(int64(diceVal)) + 1)
+					vals = append(vals, num)
+				} else {
+					rollVals, err := rollDice(numDice, diceVal)
+					if err != nil {
+						SendError(ca, err.Error())
+						return
+					}
+					vals = append(vals, rollVals...)
 				}
-
-				vals, err := rollDice(numDice, diceVal)
-				if err != nil {
-					SendError(ca, err.Error())
-					return
+				for i := 0; i < len(vals); i++ {
+					num := vals[i]
+					exploded := ""
+					if exploding && num == diceVal {
+						exploded = "!"
+					}
+					setres = append(setres, fmt.Sprintf("`[%v%s]`", num, exploded))
+					if exploding {
+						for num == diceVal {
+							num = int(rand.Int63n(int64(diceVal)) + 1)
+							vals = append(vals, num)
+						}
+					}
 				}
-				for _, die := range vals {
-					setres = append(setres, fmt.Sprintf("`[%v]`", die))
+				sum := ""
+				if getSum {
+					total := 0
+					for _, num := range vals {
+						total += num
+					}
+					sum = fmt.Sprintf(" *= %d*", total)
 				}
-				results = append(results, strings.Join(setres, " "))
+				results = append(results, strings.Join(setres, " ")+sum)
 			}
 
 			retstr := results[0]

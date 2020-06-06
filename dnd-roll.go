@@ -103,9 +103,18 @@ func init() {
 			// TO DO: allow omission of number of rolls to default to 1
 			// TO DO: optimization for 1d6, don't use probtable, just generate 1-6
 			// TO DO: exploding die: on max roll, add another die (no table)
+			//		- !roll 2d6x
+			// TO DO: 2d6+1 or 2d6-1 syntax for bonus/minus die
 			// TO DO: custom die
-			//		- command to set array ["a","b","c"]
-			//		- roll as name !roll 2dZoop or 2Zoop
+			//		- roll as name !roll 2dZ or 2dZoop
+			//		- !setdie name "a" "b" "c"
+			//		- !setface diename facename some string (image attachment)
+			//		- !deletedie name
+			//		- keep struct of die > face > emojiID (per guild)
+			//		- if deleting die, remove emojis
+			//		- if !set a die, remove emojis for faces that no longer exist (by name or index?)
+			//		- if !setface remove all old emoji -- if no new emoji is given, emoji is removed
+			//
 
 			// TO DO: gm roll
 			//	- get first member of gm role in channel
@@ -114,6 +123,9 @@ func init() {
 			//	- store role id in per-guild json
 			//	- if gm rolls, send only to gm
 			//	- if player rolls, send to gm and player
+			//	- !setgmrole gm
+			//	- !delgmrole
+			//	- !roll gm 2d6
 
 			regex := regexp.MustCompile(`^(\d+d\d+\s?)+( [\w ]+)?$`)
 			if !regex.MatchString(ca.args) {

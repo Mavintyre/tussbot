@@ -62,6 +62,11 @@ func HandleCommand(s *discordgo.Session, m *discordgo.Message) {
 	}
 }
 
+// TO DO: help command
+// TO DO: empty args shows help
+//	- flag to toggle (on|off?) for commands that accept no args
+//	- avoid handling args globally
+
 // SendReply to a message's source channel with a string -- returns message and error
 func SendReply(ca CommandArgs, str string) (*discordgo.Message, error) {
 	str = StrClamp(str, 2000)
@@ -137,5 +142,3 @@ func SendError(ca CommandArgs, str string) {
 		fmt.Println(err)
 	}
 }
-
-// TO DO: help command

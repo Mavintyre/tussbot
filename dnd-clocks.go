@@ -8,6 +8,14 @@ import (
 	"github.com/fogleman/gg"
 )
 
+// TO DO:
+// - !clocks - generate composite image to show all clocks
+//	  - cache clocks in memory (or disk?) as to not regen all at once?
+// - !clock name - display one
+// - !clock name 2/4 - create or set
+// - !clock name +2 - offset
+// - !clock name del[ete] - only command to not upload image
+
 func drawCircle() {
 	width, height := 100, 100
 	cx, cy := 50.0, 50.0

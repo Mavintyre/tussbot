@@ -107,6 +107,8 @@ func init() {
 		callback: func(ca CommandArgs) {
 			// TO DO: keep stats of rolls cumulative & per user
 			//	- distribution, set runs, consequtive runs
+			// TO DO: how to handle guild storage?
+
 			// TO DO: custom die
 			//		- roll as name !roll 2dZ or 2dZoop
 			//		- !setdie name "a" "b" "c"

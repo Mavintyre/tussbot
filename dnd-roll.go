@@ -60,11 +60,7 @@ func (pt *probTable) reduceProb(val int) {
 	pt.renumerate()
 }
 
-func rollDice(input string) ([]int, error) {
-	split := strings.Split(input, "d")
-	numDice, _ := strconv.ParseFloat(split[0], 64)
-	diceVal, _ := strconv.Atoi(split[1])
-
+func rollDice(numDice float64, diceVal int) ([]int, error) {
 	if numDice < 1 || diceVal <= 1 {
 		return nil, errors.New("nothing to roll")
 	}
@@ -111,8 +107,6 @@ func init() {
 		callback: func(ca CommandArgs) {
 			// TO DO: keep stats of rolls cumulative & per user
 			//	- distribution, set runs, consequtive runs
-			// TO DO: allow omission of number of rolls to default to 1
-			// TO DO: optimization for 1d6, don't use probtable, just generate 1-6
 			// TO DO: exploding die: on max roll, add another die (no table)
 			//		- !roll 2d6x
 			// TO DO: 2d6+1 or 2d6-1 syntax for bonus/minus die
@@ -138,7 +132,7 @@ func init() {
 			//	- !delgmrole
 			//	- !roll gm 2d6
 
-			regex := regexp.MustCompile(`^((?:\d+d\d+\s)+)\s?([\w ]+)?$`)
+			regex := regexp.MustCompile(`^((?:\d*d\d+\s)+)\s?([\w ]+)?$`)
 			if !regex.MatchString(ca.args) {
 				SendError(ca, "invalid roll parameters\ncheck `%Phelp roll` for usage")
 				return
@@ -155,7 +149,21 @@ func init() {
 			var results []string
 			for _, str := range strings.Fields(rollstr) {
 				var setres []string
-				vals, err := rollDice(str)
+				if str[0] == 'd' {
+					str = "1" + str
+				}
+
+				split := strings.Split(str, "d")
+				numDice, _ := strconv.ParseFloat(split[0], 64)
+				diceVal, _ := strconv.Atoi(split[1])
+
+				if numDice == 1 {
+					num := rand.Int63n(int64(diceVal)) + 1
+					results = append(results, fmt.Sprintf("`[%v]`", num))
+					continue
+				}
+
+				vals, err := rollDice(numDice, diceVal)
 				if err != nil {
 					SendError(ca, err.Error())
 					return

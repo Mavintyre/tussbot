@@ -159,7 +159,7 @@ func init() {
 			if len(results) > 1 {
 				retstr = strings.Join(results, "  **--**  ")
 			}
-			QuickEmbedF(ca, retstr, tags)
+			QuickEmbed(ca, QEmbed{content: retstr, footer: tags})
 		},
 	})
 
@@ -167,7 +167,7 @@ func init() {
 		aliases: []string{"seed"},
 		callback: func(ca CommandArgs) {
 			if ca.args == "" && ca.alias == "seed" {
-				QuickEmbed(ca, fmt.Sprintf("current seed: %v", seedstr))
+				QuickEmbed(ca, QEmbed{content: fmt.Sprintf("current seed: %v", seedstr)})
 				return
 			}
 			seed = time.Now().UnixNano()
@@ -184,10 +184,10 @@ func init() {
 
 			content := fmt.Sprintf("new seed: %v", seedstr)
 			if footer != "" {
-				QuickEmbedTF(ca, "roll reseeded", content, footer)
+				QuickEmbed(ca, QEmbed{title: "roll reseeded", content: content, footer: footer})
 				return
 			}
-			QuickEmbedT(ca, "roll reseeded", content)
+			QuickEmbed(ca, QEmbed{title: "roll reseeded", content: content})
 		},
 	})
 }

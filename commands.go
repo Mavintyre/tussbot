@@ -145,27 +145,24 @@ func SendEmbed(ca CommandArgs, em *discordgo.MessageEmbed) (*discordgo.Message, 
 	return nm, err
 }
 
-// QuickEmbedTF sends a quick title, description, and footer embed
-func QuickEmbedTF(ca CommandArgs, title string, content string, footer string) (*discordgo.Message, error) {
-	em := &discordgo.MessageEmbed{Title: title, Description: content, Footer: &discordgo.MessageEmbedFooter{Text: footer}}
-	return SendEmbed(ca, em)
+// QEmbed provides a quick interface to create message embeds
+//	quirk: colour can't be 0, if black is desired use 0x000001
+type QEmbed struct {
+	title   string
+	content string
+	footer  string
+	colour  int
 }
 
-// QuickEmbedT sends a quick title and description embed
-func QuickEmbedT(ca CommandArgs, title string, content string) (*discordgo.Message, error) {
-	em := &discordgo.MessageEmbed{Title: title, Description: content}
-	return SendEmbed(ca, em)
+// QuickEmbed sends a quick embed using QEmbed
+func QuickEmbed(ca CommandArgs, qem QEmbed) (*discordgo.Message, error) {
+	em := &discordgo.MessageEmbed{Title: qem.title, Description: qem.content}
+	if qem.footer != "" {
+		em.Footer = &discordgo.MessageEmbedFooter{Text: qem.footer}
 }
-
-// QuickEmbedF sends a quick description and footer embed
-func QuickEmbedF(ca CommandArgs, content string, footer string) (*discordgo.Message, error) {
-	em := &discordgo.MessageEmbed{Description: content, Footer: &discordgo.MessageEmbedFooter{Text: footer}}
-	return SendEmbed(ca, em)
+	if qem.colour != 0 {
+		em.Color = qem.colour
 }
-
-// QuickEmbed sends a quick description-only embed
-func QuickEmbed(ca CommandArgs, content string) (*discordgo.Message, error) {
-	em := &discordgo.MessageEmbed{Description: content}
 	return SendEmbed(ca, em)
 }
 

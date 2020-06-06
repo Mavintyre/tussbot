@@ -132,7 +132,7 @@ func init() {
 			//	- !delgmrole
 			//	- !roll gm 2d6
 
-			regex := regexp.MustCompile(`^((?:\d*d\d+\s)+)\s?([\w ]+)?$`)
+			regex := regexp.MustCompile(`^((?:\d*d\d+\s?)+)\s?([\w ]+)?$`)
 			if !regex.MatchString(ca.args) {
 				SendError(ca, "invalid roll parameters\ncheck `%Phelp roll` for usage")
 				return

@@ -97,6 +97,15 @@ func init() {
 
 	RegisterCommand(Command{
 		aliases: []string{"roll", "r"},
+		help: `roll some dice with realistic probability\n
+		^!roll d6^ - roll a dice with 6 faces
+		^!roll 2d6^ - roll 2 dice with 6 faces
+		^!roll 2d6+1^ - roll 2d6 with an extra die
+		^!roll 2d6-1^ - roll 2d6 minus one die
+		^!roll 2d6!^ - roll 2d6 with exploding re-rolls
+		^!roll gm 2d6^ - roll that only you and the GM can see
+		^$roll 2d6 3d20^ - roll multiple sets of dice
+		^!roll 1dS^ - roll custom dice of name S`,
 		callback: func(ca CommandArgs) {
 			// TO DO: keep stats of rolls cumulative & per user
 			//	- distribution, set runs, consequtive runs
@@ -129,7 +138,7 @@ func init() {
 
 			regex := regexp.MustCompile(`^(\d+d\d+\s?)+( [\w ]+)?$`)
 			if !regex.MatchString(ca.args) {
-				SendError(ca, "invalid roll parameters")
+				SendError(ca, "invalid roll parameters\ncheck `%Phelp roll` for usage")
 				return
 			}
 
@@ -165,6 +174,10 @@ func init() {
 
 	RegisterCommand(Command{
 		aliases: []string{"seed"},
+		help: `display or change random seed\n
+		^%Pseed^ - display current seed
+		^%Pseed asdf^ - change seed to "asdf"`,
+		emptyArg: true,
 		callback: func(ca CommandArgs) {
 			if ca.args == "" && ca.alias == "seed" {
 				QuickEmbed(ca, QEmbed{content: fmt.Sprintf("current seed: %v", seedstr)})

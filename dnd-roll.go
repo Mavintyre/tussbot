@@ -60,12 +60,12 @@ func (pt *probTable) reduceProb(val int) {
 	pt.renumerate()
 }
 
-func rollDice(numDice float64, diceVal int) ([]int, error) {
+func rollDice(numDice int, diceVal int) ([]int, error) {
 	if numDice < 1 || diceVal <= 1 {
 		return nil, errors.New("nothing to roll")
 	}
 
-	maxProb := math.Pow(float64(diceVal), numDice)
+	maxProb := math.Pow(float64(diceVal), float64(numDice))
 	if int64(maxProb-1) < 0 {
 		return nil, errors.New("probability too high to compute")
 	}
@@ -76,7 +76,7 @@ func rollDice(numDice float64, diceVal int) ([]int, error) {
 	table.init(diceVal, valSpan)
 
 	var results []int
-	for d := 0; d < int(numDice); d++ {
+	for d := 0; d < numDice; d++ {
 		i := rand.Int63n(int64(table.max-1)) + 1
 		num := table.atIndex(float64(i))
 		results = append(results, num)
@@ -107,7 +107,6 @@ func init() {
 		callback: func(ca CommandArgs) {
 			// TO DO: keep stats of rolls cumulative & per user
 			//	- distribution, set runs, consequtive runs
-			// TO DO: 2d6+1 or 2d6-1 syntax for bonus/minus die
 			// TO DO: custom die
 			//		- roll as name !roll 2dZ or 2dZoop
 			//		- !setdie name "a" "b" "c"
@@ -129,7 +128,7 @@ func init() {
 			//	- !delgmrole
 			//	- !roll gm 2d6
 
-			regex := regexp.MustCompile(`^((?:\d*d\d+(?:[!#]+)?\s?)+)\s?([\w ]+)?$`)
+			regex := regexp.MustCompile(`^((?:\d*d\d+(?:[+-]\d+)?(?:[!#]+)?\s?)+)\s?([\w ]+)?$`)
 			if !regex.MatchString(ca.args) {
 				SendError(ca, "invalid roll parameters\ncheck `%Phelp roll` for usage")
 				return
@@ -150,7 +149,29 @@ func init() {
 					str = "1" + str
 				}
 
+				numoffset := 0
+				extrareg := regexp.MustCompile(`([+-]\d+)`)
+				if extrareg.MatchString(str) {
+					extramatch := extrareg.FindAllString(str, -1)
+					if len(extramatch) < 1 {
+						SendError(ca, "error capturing extra die syntax")
+						return
+					}
+					extrastr := extramatch[0]
+					str = strings.Replace(str, extrastr, "", -1)
+					extra, err := strconv.Atoi(extrastr)
+					if err != nil {
+						SendError(ca, "couldn't parse extra die"+err.Error())
+						return
+					}
+					numoffset = extra
+				}
+
 				split := strings.Split(str, "d")
+				if len(split) < 2 {
+					SendError(ca, "error parsing roll string")
+					return
+				}
 
 				exploding := false
 				getSum := false
@@ -165,7 +186,7 @@ func init() {
 					}
 				}
 
-				numDice, err := strconv.ParseFloat(split[0], 64)
+				numDice, err := strconv.Atoi(split[0])
 				if err != nil {
 					SendError(ca, "couldn't parse number of dice"+err.Error())
 					return
@@ -175,6 +196,7 @@ func init() {
 					SendError(ca, "couldn't parse dice value"+err.Error())
 					return
 				}
+				numDice += numoffset
 
 				var vals []int
 				if numDice == 1 {

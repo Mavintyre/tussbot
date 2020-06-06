@@ -25,6 +25,7 @@ func RegisterCommand(cmd Command) {
 type CommandArgs struct {
 	sess  *discordgo.Session
 	msg   *discordgo.Message
+	ch    string
 	cmd   *Command
 	alias string
 	args  string
@@ -35,7 +36,15 @@ func HandleCommand(s *discordgo.Session, m *discordgo.Message) {
 	// TO DO: pm owner on panic
 	defer func() {
 		if r := recover(); r != nil {
-			fmt.Println("<Recovered panic in HandleCommand>", PanicStack())
+			stack := PanicStack()
+			fmt.Println("<Recovered panic in HandleCommand>", stack)
+			ch, err := GetDMChannel(s, Config.OwnerID)
+			if err != nil {
+				fmt.Println("error DMing owner panic log", err)
+				return
+			}
+			stack = strings.Replace(stack, "	", ">", -1)
+			SendReply(CommandArgs{sess: s, ch: ch.ID}, fmt.Sprintf("`<Recovered panic in HandleCommand>`\n```%s```", StrClamp(stack, 1957)))
 		}
 	}()
 
@@ -67,13 +76,33 @@ func HandleCommand(s *discordgo.Session, m *discordgo.Message) {
 //	- flag to toggle (on|off?) for commands that accept no args
 //	- avoid handling args globally
 
+// GetDMChannel finds a user by ID and returns a Channel for DMing them in
+func GetDMChannel(s *discordgo.Session, id string) (*discordgo.Channel, error) {
+	user, err := s.User(id)
+	if err != nil {
+		return nil, fmt.Errorf("error getting user to DM: %s", err)
+	}
+	ch, err := s.UserChannelCreate(user.ID)
+	if err != nil {
+		return nil, fmt.Errorf("error creating DM channel: %w", err)
+	}
+	return ch, nil
+}
+
 // SendReply to a message's source channel with a string -- returns message and error
 func SendReply(ca CommandArgs, str string) (*discordgo.Message, error) {
 	str = StrClamp(str, 2000)
 
-	nm, err := ca.sess.ChannelMessageSend(ca.msg.ChannelID, str)
+	ch := ""
+	if ca.ch != "" {
+		ch = ca.ch
+	} else {
+		ch = ca.msg.ChannelID
+	}
+
+	nm, err := ca.sess.ChannelMessageSend(ch, str)
 	if err != nil {
-		err = fmt.Errorf("error sending reply in %s: %w", GetChannelName(ca.sess, ca.msg.ChannelID), err)
+		err = fmt.Errorf("error sending reply in %s: %w", GetChannelName(ca.sess, ch), err)
 		SendError(ca, err.Error())
 	}
 	return nm, err
@@ -101,9 +130,16 @@ func SendEmbed(ca CommandArgs, em *discordgo.MessageEmbed) (*discordgo.Message, 
 		em.Author.Name = StrClamp(em.Author.Name, 256)
 	}
 
-	nm, err := ca.sess.ChannelMessageSendEmbed(ca.msg.ChannelID, em)
+	ch := ""
+	if ca.ch != "" {
+		ch = ca.ch
+	} else {
+		ch = ca.msg.ChannelID
+	}
+
+	nm, err := ca.sess.ChannelMessageSendEmbed(ch, em)
 	if err != nil {
-		err = fmt.Errorf("error sending embed in %s: %w", GetChannelName(ca.sess, ca.msg.ChannelID), err)
+		err = fmt.Errorf("error sending embed in %s: %w", GetChannelName(ca.sess, ch), err)
 		SendError(ca, err.Error())
 	}
 	return nm, err
@@ -136,9 +172,15 @@ func QuickEmbed(ca CommandArgs, content string) (*discordgo.Message, error) {
 // SendError to a message's source channel with special error formatting
 func SendError(ca CommandArgs, str string) {
 	// not using SendEmbed here so we don't get stuck in a SendError loop
-	_, err := ca.sess.ChannelMessageSendEmbed(ca.msg.ChannelID, &discordgo.MessageEmbed{Title: "error", Description: StrClamp(str, 2000), Color: 0xff0000})
+	ch := ""
+	if ca.ch != "" {
+		ch = ca.ch
+	} else {
+		ch = ca.msg.ChannelID
+	}
+	_, err := ca.sess.ChannelMessageSendEmbed(ch, &discordgo.MessageEmbed{Title: "error", Description: StrClamp(str, 2000), Color: 0xff0000})
 	if err != nil {
-		err = fmt.Errorf("error sending error in %s: %w", GetChannelName(ca.sess, ca.msg.ChannelID), err)
+		err = fmt.Errorf("error sending error in %s: %w", GetChannelName(ca.sess, ch), err)
 		fmt.Println(err)
 	}
 }

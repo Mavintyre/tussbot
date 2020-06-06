@@ -103,8 +103,10 @@ func init() {
 		^!roll 2d6+1^ - roll 2d6 with an extra die
 		^!roll 2d6-1^ - roll 2d6 minus one die
 		^!roll 2d6!^ - roll 2d6 with exploding re-rolls
+		^!roll 2d6#^ - roll 2d6 and show their sum
 		^!roll gm 2d6^ - roll that only you and the GM can see
 		^$roll 2d6 3d20^ - roll multiple sets of dice
+		^!roll 2d6 risky standard^ - tag a roll's output
 		^!roll 1dS^ - roll custom dice of name S`,
 		callback: func(ca CommandArgs) {
 			// TO DO: keep stats of rolls cumulative & per user
@@ -123,7 +125,7 @@ func init() {
 			//		- if deleting die, remove emojis
 			//		- if !set a die, remove emojis for faces that no longer exist (by name or index?)
 			//		- if !setface remove all old emoji -- if no new emoji is given, emoji is removed
-			//
+			// TO DO: (option?) show sum of die
 
 			// TO DO: gm roll
 			//	- get first member of gm role in channel
@@ -136,7 +138,7 @@ func init() {
 			//	- !delgmrole
 			//	- !roll gm 2d6
 
-			regex := regexp.MustCompile(`^(\d+d\d+\s?)+( [\w ]+)?$`)
+			regex := regexp.MustCompile(`^((?:\d+d\d+\s)+)\s?([\w ]+)?$`)
 			if !regex.MatchString(ca.args) {
 				SendError(ca, "invalid roll parameters\ncheck `%Phelp roll` for usage")
 				return

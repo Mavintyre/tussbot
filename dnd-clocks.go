@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"math"
 	"strings"
 
@@ -56,7 +57,7 @@ func Spike() []Point {
 	return poly
 }
 
-func drawSpikes() {
+func drawSpikes() error {
 	width, height := 300, 100
 
 	slices := 6
@@ -90,8 +91,10 @@ func drawSpikes() {
 		ctx.RotateAbout(angle*2, cx, cy)
 	}
 
-	if err := ctx.LoadFontFace("/usr/share/fonts/noto/NotoSerif-Bold.ttf", 18); err != nil {
-		panic(err)
+	if err := ctx.LoadFontFace("/usr/share/fonts/truetype/noto/NotoSerif-Bold.ttf", 18); err != nil {
+		if err := ctx.LoadFontFace("/usr/share/fonts/noto/NotoSerif-Bold.ttf", 18); err != nil {
+			return errors.New("unable to load font")
+		}
 	}
 
 	ctx.SetHexColor("#fff")
@@ -100,4 +103,6 @@ func drawSpikes() {
 	ctx.DrawStringWrapped(strings.ToUpper("Crows: Reestablish control of crow's foot"), offset+float64(width/3), float64(height)/2, 0.5, 0.5, float64(width)-offset, 1.1, gg.AlignCenter)
 
 	ctx.SavePNG("out.png")
+
+	return nil
 }

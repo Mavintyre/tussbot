@@ -14,22 +14,22 @@ func drawCircle() {
 	border := 2.0
 
 	slices := 8.0
-	ticked := 7.0
+	ticked := 3.0
 
 	angle := 360 / (slices / ticked)
 
 	ctx := gg.NewContext(width, height)
 
 	ctx.DrawCircle(cx, cy, radius)
-	ctx.SetRGB(1, 1, 1)
+	ctx.SetHexColor("#40444b")
 	ctx.Fill()
 
 	ctx.MoveTo(cx, cy)
 	ctx.DrawArc(cx, cy, radius, gg.Radians(-90), gg.Radians(angle-90))
-	ctx.SetRGB(1.0, 0, 0)
+	ctx.SetHexColor("#7289da")
 	ctx.Fill()
 
-	ctx.SetRGB(0, 0, 0)
+	ctx.SetHexColor("#202225")
 	ctx.SetLineWidth(border)
 	ctx.DrawCircle(cx, cy, radius)
 	for i := 0.0; i < slices; i++ {
@@ -68,9 +68,6 @@ func drawSpikes() {
 	angle := math.Pi / float64(slices)
 
 	ctx := gg.NewContext(width, height)
-	ctx.DrawRectangle(0, 0, float64(width), float64(height))
-	ctx.SetHexColor("#36393f")
-	ctx.Fill()
 
 	ctx.SetLineWidth(2)
 	ctx.RotateAbout(gg.Radians(180), cx, cy)

@@ -128,12 +128,14 @@ func init() {
 			//	- !delgmrole
 			//	- !roll gm 2d6
 
+			// uber regex to check for valid syntax
 			regex := regexp.MustCompile(`^((?:\d*d\d+(?:[+-]\d+)?(?:[!#]+)?\s?)+)\s?([\w ]+)?$`)
 			if !regex.MatchString(ca.args) {
 				SendError(ca, "invalid roll parameters\ncheck `%Phelp roll` for usage")
 				return
 			}
 
+			// separate roll syntax from tags
 			groups := regex.FindAllStringSubmatch(ca.args, -1)
 			if len(groups) == 0 || len(groups[0]) < 3 {
 				SendError(ca, "error matching regex")
@@ -142,13 +144,17 @@ func init() {
 			rollstr := groups[0][1]
 			tags := groups[0][2]
 
+			// for each set in rollstr
 			var results []string
 			for _, str := range strings.Fields(rollstr) {
 				var setres []string
+
+				// if no number before 'd', assume 1
 				if str[0] == 'd' {
 					str = "1" + str
 				}
 
+				// bonus die
 				numoffset := 0
 				extrareg := regexp.MustCompile(`([+-]\d+)`)
 				if extrareg.MatchString(str) {
@@ -167,12 +173,14 @@ func init() {
 					numoffset = extra
 				}
 
+				// split into value and number of die
 				split := strings.Split(str, "d")
 				if len(split) < 2 {
 					SendError(ca, "error parsing roll string")
 					return
 				}
 
+				// handle if tail end has exploding or sum syntax tokens
 				exploding := false
 				getSum := false
 				for strings.HasSuffix(split[1], "!") || strings.HasSuffix(split[1], "#") {
@@ -186,6 +194,7 @@ func init() {
 					}
 				}
 
+				// parse number of dice and value
 				numDice, err := strconv.Atoi(split[0])
 				if err != nil {
 					SendError(ca, "couldn't parse number of dice"+err.Error())
@@ -198,11 +207,12 @@ func init() {
 				}
 				numDice += numoffset
 
+				// roll die
 				var vals []int
-				if numDice == 1 {
+				if numDice == 1 { // don't bother setting up a ProbTable for just 1 die
 					num := int(rand.Int63n(int64(diceVal)) + 1)
 					vals = append(vals, num)
-				} else {
+				} else { // roll with ProbTable
 					rollVals, err := rollDice(numDice, diceVal)
 					if err != nil {
 						SendError(ca, err.Error())
@@ -210,13 +220,21 @@ func init() {
 					}
 					vals = append(vals, rollVals...)
 				}
+
+				// handle rolled values
 				for i := 0; i < len(vals); i++ {
 					num := vals[i]
+
+					// exploded ! suffix to rolls of max val
 					exploded := ""
 					if exploding && num == diceVal {
 						exploded = "!"
 					}
+
+					// format output
 					setres = append(setres, fmt.Sprintf("`[%v%s]`", num, exploded))
+
+					// keep exploding
 					if exploding {
 						for num == diceVal {
 							num = int(rand.Int63n(int64(diceVal)) + 1)
@@ -224,6 +242,8 @@ func init() {
 						}
 					}
 				}
+
+				// sum it up
 				sum := ""
 				if getSum {
 					total := 0
@@ -232,6 +252,7 @@ func init() {
 					}
 					sum = fmt.Sprintf(" *= %d*", total)
 				}
+
 				results = append(results, strings.Join(setres, " ")+sum)
 			}
 

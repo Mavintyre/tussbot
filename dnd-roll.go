@@ -154,8 +154,16 @@ func init() {
 				}
 
 				split := strings.Split(str, "d")
-				numDice, _ := strconv.ParseFloat(split[0], 64)
-				diceVal, _ := strconv.Atoi(split[1])
+				numDice, err := strconv.ParseFloat(split[0], 64)
+				if err != nil {
+					SendError(ca, "couldn't parse number of dice"+err.Error())
+					return
+				}
+				diceVal, err := strconv.Atoi(split[1])
+				if err != nil {
+					SendError(ca, "couldn't parse dice value"+err.Error())
+					return
+				}
 
 				if numDice == 1 {
 					num := rand.Int63n(int64(diceVal)) + 1

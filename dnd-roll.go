@@ -103,6 +103,9 @@ func init() {
 			// TO DO: allow omission of number of rolls to default to 1
 			// TO DO: optimization for 1d6, don't use probtable, just generate 1-6
 			// TO DO: exploding die: on max roll, add another die (no table)
+			// TO DO: custom die
+			//		- command to set array ["a","b","c"]
+			//		- roll as name !roll 2dZoop or 2Zoop
 
 			// TO DO: gm roll
 			//	- get first member of gm role in channel

@@ -53,7 +53,7 @@ func init() {
 							vc.Disconnect()
 							return
 						case <-ticker.C:
-							pos := session.CurrentTime()
+							pos := session.CurrentTime().Seconds()
 							fmt.Println(pos)
 						}
 					}

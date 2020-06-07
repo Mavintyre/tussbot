@@ -60,6 +60,11 @@ func (s *FFMPEGSession) Start(url string, vc *discordgo.VoiceConnection, done ch
 	// 		for !volume, !seek, next song in queue, etc...
 	//		otherwise: how to handle next song in queue w/ framesSent sourcing?
 	//					how to reset framesSent?
+	// ss always takes seconds
+	// add new Start args for volume and seek, remove volume funcs
+	// don't store streamURL here -- unneeded if restarting every time
+	// better to kill on pause in music.go instead of pause here? how does buffer react
+	// avoid defer unlock
 
 	args := []string{
 		// "-ss", seek,

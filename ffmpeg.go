@@ -47,10 +47,10 @@ func (s *FFMPEGSession) Start(url string, vc *discordgo.VoiceConnection, done ch
 
 	s.Lock()
 	if s.encoding {
-		s.Stop()
+		done <- errors.New("invalid attempt to restart encoder")
+		s.Unlock()
+		return
 	}
-
-	fmt.Println("restarting")
 
 	s.encoding = true
 	s.paused = false
@@ -138,24 +138,18 @@ func (s *FFMPEGSession) Start(url string, vc *discordgo.VoiceConnection, done ch
 	go s.readStdout(stdout, &wg)
 	go s.readStderr(stderr, &wg)
 
-	fmt.Println("wg wait")
-
 	wg.Wait()
-	fmt.Println("wg done")
 
-	fmt.Println("waiting on process")
 	err = cmd.Wait()
 	if err != nil {
 		if err.Error() != "signal: killed" {
 			done <- fmt.Errorf("ffmpeg error: %w", err)
 		}
 	}
-	fmt.Println("waiting on lock")
 
 	s.Lock()
 	s.encoding = false
 	s.Unlock()
-	fmt.Println("stopped")
 }
 
 func (s *FFMPEGSession) readStderr(stderr io.ReadCloser, wg *sync.WaitGroup) {
@@ -180,7 +174,7 @@ func (s *FFMPEGSession) readStderr(stderr io.ReadCloser, wg *sync.WaitGroup) {
 			outBuf.WriteRune(r)
 		}
 	}
-	fmt.Println("stderr stopped")
+	stderr.Close()
 }
 
 func (s *FFMPEGSession) readStdout(stdout io.ReadCloser, wg *sync.WaitGroup) {
@@ -191,8 +185,10 @@ func (s *FFMPEGSession) readStdout(stdout io.ReadCloser, wg *sync.WaitGroup) {
 	skip := 2
 	for {
 		select {
+		// channel required to kill this goroutine as decoder.Decode will block forever
+		// and the chances of us intercepting that are slim to none
 		case <-s.killDecoder:
-			fmt.Println("stdout killed")
+			stdout.Close()
 			return
 		default:
 			packet, _, err := decoder.Decode()
@@ -210,7 +206,6 @@ func (s *FFMPEGSession) readStdout(stdout io.ReadCloser, wg *sync.WaitGroup) {
 			s.frameBuffer <- packet
 		}
 	}
-	fmt.Println("stdout stopped")
 }
 
 // GetFrame returns a single frame of DCA encoded Opus
@@ -269,7 +264,6 @@ func (s *FFMPEGSession) StartStream() {
 	s.Lock()
 	s.streaming = false
 	s.Unlock()
-	fmt.Println("streaming stopped")
 }
 
 // CurrentTime returns current playback position
@@ -302,7 +296,6 @@ func (s *FFMPEGSession) SetVolume(v float64) {
 	s.Unlock()
 
 	s.Stop() // stop and wait until cleaned
-	fmt.Println("stop complete")
 	go s.Start(s.streamURL, s.voiceCh, s.done)
 }
 
@@ -338,8 +331,6 @@ func (s *FFMPEGSession) StopEncoder() {
 		}
 		s.Unlock()
 	}
-
-	fmt.Println("encoder stopped")
 }
 
 // Stop everything and clean up

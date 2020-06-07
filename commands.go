@@ -44,7 +44,7 @@ func HandleCommand(s *discordgo.Session, m *discordgo.Message) {
 	defer func() {
 		if r := recover(); r != nil {
 			stack := PanicStack()
-			fmt.Println("<Recovered panic in HandleCommand>", stack)
+			fmt.Println("<Recovered panic in HandleCommand>\n", stack)
 			ch, err := GetDMChannel(s, Config.OwnerID)
 			if err != nil {
 				fmt.Println("error DMing owner panic log", err)

@@ -27,27 +27,39 @@ type FFMPEGSession struct {
 	ffmpeg      *os.Process
 	frameBuffer chan []byte
 	done        chan error
+	killDecoder chan int
 	paused      bool
 	volume      float64
 	framesSent  int
 	voiceCh     *discordgo.VoiceConnection
+	streamURL   string
 }
 
 var frameDuration = 20 // 20, 40, or 60 ms
 
 // Start an ffmpeg session and begin streaming
 //	`done` channel signals io.EOF for natural end of stream as well as legitimate errors
+//	session.SetVolume(1) **MUST** be called before Start
 func (s *FFMPEGSession) Start(url string, vc *discordgo.VoiceConnection, done chan error) {
 	s.done = done
 	s.voiceCh = vc
+	s.streamURL = url
 
 	s.Lock()
 	if s.encoding {
 		s.Stop()
 	}
 
+	fmt.Println("restarting")
+
 	s.encoding = true
-	s.volume = 1
+	s.paused = false
+
+	// TO DO: use s.framesSent to source -ss
+	// OR: don't reuse FFMPEGSession, destroy and remake in music.go
+	// 		for !volume, !seek, next song in queue, etc...
+	//		otherwise: how to handle next song in queue w/ framesSent sourcing?
+	//					how to reset framesSent?
 
 	args := []string{
 		// "-ss", seek,
@@ -91,6 +103,7 @@ func (s *FFMPEGSession) Start(url string, vc *discordgo.VoiceConnection, done ch
 	}
 
 	cmd := exec.Command("ffmpeg", args...)
+	s.killDecoder = make(chan int, 1)
 
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
@@ -125,17 +138,24 @@ func (s *FFMPEGSession) Start(url string, vc *discordgo.VoiceConnection, done ch
 	go s.readStdout(stdout, &wg)
 	go s.readStderr(stderr, &wg)
 
+	fmt.Println("wg wait")
+
 	wg.Wait()
+	fmt.Println("wg done")
+
+	fmt.Println("waiting on process")
 	err = cmd.Wait()
 	if err != nil {
 		if err.Error() != "signal: killed" {
 			done <- fmt.Errorf("ffmpeg error: %w", err)
 		}
 	}
+	fmt.Println("waiting on lock")
 
 	s.Lock()
 	s.encoding = false
 	s.Unlock()
+	fmt.Println("stopped")
 }
 
 func (s *FFMPEGSession) readStderr(stderr io.ReadCloser, wg *sync.WaitGroup) {
@@ -160,6 +180,7 @@ func (s *FFMPEGSession) readStderr(stderr io.ReadCloser, wg *sync.WaitGroup) {
 			outBuf.WriteRune(r)
 		}
 	}
+	fmt.Println("stderr stopped")
 }
 
 func (s *FFMPEGSession) readStdout(stdout io.ReadCloser, wg *sync.WaitGroup) {
@@ -169,21 +190,27 @@ func (s *FFMPEGSession) readStdout(stdout io.ReadCloser, wg *sync.WaitGroup) {
 
 	skip := 2
 	for {
-		packet, _, err := decoder.Decode()
-		if skip > 0 {
-			skip--
-			continue
-		}
-		if err != nil {
-			if err != io.EOF {
-				s.done <- fmt.Errorf("ffmpeg stdout error: %w", err)
+		select {
+		case <-s.killDecoder:
+			fmt.Println("stdout killed")
+			return
+		default:
+			packet, _, err := decoder.Decode()
+			if skip > 0 {
+				skip--
+				continue
 			}
-			s.frameBuffer <- nil
-			break
-		}
+			if err != nil {
+				if err != io.EOF && err != io.ErrUnexpectedEOF {
+					s.done <- fmt.Errorf("ffmpeg stdout error: %w", err)
+				}
+				break
+			}
 
-		s.frameBuffer <- packet
+			s.frameBuffer <- packet
+		}
 	}
+	fmt.Println("stdout stopped")
 }
 
 // GetFrame returns a single frame of DCA encoded Opus
@@ -212,7 +239,7 @@ func (s *FFMPEGSession) StartStream() {
 		s.Lock()
 		if s.paused {
 			s.Unlock()
-			return
+			break
 		}
 		s.Unlock()
 
@@ -242,6 +269,7 @@ func (s *FFMPEGSession) StartStream() {
 	s.Lock()
 	s.streaming = false
 	s.Unlock()
+	fmt.Println("streaming stopped")
 }
 
 // CurrentTime returns current playback position
@@ -259,27 +287,71 @@ func (s *FFMPEGSession) SetPaused(p bool) {
 	// paused == true will break the stream loop
 	s.paused = p
 	if p == false {
-		s.StartStream()
+		go s.StartStream()
 	}
+}
+
+// SetVolume and restart encoding
+func (s *FFMPEGSession) SetVolume(v float64) {
+	s.Lock()
+	s.volume = v
+	if !s.encoding {
+		s.Unlock()
+		return
+	}
+	s.Unlock()
+
+	s.Stop() // stop and wait until cleaned
+	fmt.Println("stop complete")
+	go s.Start(s.streamURL, s.voiceCh, s.done)
+}
+
+// Volume returns current playback volume
+func (s *FFMPEGSession) Volume() float64 {
+	s.Lock()
+	defer s.Unlock()
+
+	return s.volume
 }
 
 // StopEncoder kill process and clean up remaining unstreamed frames
 func (s *FFMPEGSession) StopEncoder() {
 	s.Lock()
-	defer s.Unlock()
-
 	if s.ffmpeg != nil {
 		s.ffmpeg.Kill()
 	}
-	s.encoding = false
+	s.Unlock()
 
-	for range s.frameBuffer {
-		// empty remaining frames
+	s.killDecoder <- 1
+
+	// empty remaining frames
+	for len(s.frameBuffer) > 0 {
+		<-s.frameBuffer
 	}
+
+	// wait until encoder has closed
+	for {
+		s.Lock()
+		if !s.encoding {
+			s.Unlock()
+			break
+		}
+		s.Unlock()
+	}
+
+	fmt.Println("encoder stopped")
 }
 
 // Stop everything and clean up
 func (s *FFMPEGSession) Stop() {
 	s.SetPaused(true)
+	for { // wait until stream has closed
+		s.Lock()
+		if !s.streaming {
+			s.Unlock()
+			break
+		}
+		s.Unlock()
+	}
 	s.StopEncoder()
 }

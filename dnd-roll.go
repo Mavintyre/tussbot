@@ -201,12 +201,16 @@ func init() {
 				// parse number of dice and value
 				numDice, err := strconv.Atoi(split[0])
 				if err != nil {
-					SendError(ca, "couldn't parse number of dice"+err.Error())
+					// TO DO: replace all instances of the following with sprintf
+					//			""+err.Error
+					//			err.Error
+					//			"",err
+					SendError(ca, "couldn't parse number of dice: "+err.Error())
 					return
 				}
 				diceVal, err := strconv.Atoi(split[1])
 				if err != nil {
-					SendError(ca, "couldn't parse dice value"+err.Error())
+					SendError(ca, "couldn't parse dice value: "+err.Error())
 					return
 				}
 

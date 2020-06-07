@@ -4,10 +4,13 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"strconv"
 	"time"
 )
 
 func init() {
+	session := FFMPEGSession{}
+
 	RegisterCommand(Command{
 		aliases: []string{"play", "p"},
 		help:    "play a song from url",
@@ -38,14 +41,13 @@ func init() {
 					done := make(chan error)
 					ticker := time.NewTicker(time.Second)
 
-					session := FFMPEGSession{}
 					go session.Start(url, vc, done)
 
 					for {
 						select {
 						case err := <-done:
 							if err != nil && !errors.Is(err, io.EOF) {
-								fmt.Println("ffmpeg session error:", err)
+								SendError(ca, fmt.Sprintf("ffmpeg session error:", err))
 							}
 							session.Stop()
 							vc.Disconnect()
@@ -59,4 +61,23 @@ func init() {
 			}
 		},
 	})
+
+	RegisterCommand(Command{
+		aliases:  []string{"volume", "vol", "v"},
+		help:     "change or display playback volume",
+		emptyArg: true,
+		callback: func(ca CommandArgs) {
+			if ca.args == "" {
+				SendReply(ca, fmt.Sprintf("current playback volume: %.2f", session.Volume()))
+				return
+			}
+
+			newVol, err := strconv.ParseFloat(ca.args, 64)
+			if err != nil {
+				SendError(ca, "error parsing volume: "+err.Error())
+				return
+			}
+
+			session.SetVolume(newVol)
+		}})
 }

@@ -9,7 +9,7 @@ import (
 )
 
 // TO DO: clocks commands
-// TO DO: how to handle guild stoage?
+// - store in guild storage "clocks" scope
 // - !clocks - generate composite image to show all clocks
 //	  - cache clocks in memory (or disk?) as to not regen all at once?
 // - !clock name - display one

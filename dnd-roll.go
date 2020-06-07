@@ -105,11 +105,8 @@ func init() {
 		^!roll 2d6 risky standard^ - tag a roll's output
 		^!roll 1dS^ - roll custom dice of name S`,
 		callback: func(ca CommandArgs) {
-			// TO DO: keep stats of rolls cumulative & per user
-			//	- distribution, set runs, consequtive runs
-			// TO DO: how to handle guild storage?
-
 			// TO DO: custom die
+			//  	- store in guild storage "roll/dice" scope
 			//		- roll as name !roll 2dZ or 2dZoop
 			//		- !setdie name "a" "b" "c"
 			//		- !setface diename facename some string (image attachment)
@@ -120,6 +117,7 @@ func init() {
 			//		- if !setface remove all old emoji -- if no new emoji is given, emoji is removed
 
 			// TO DO: gm roll
+			//  - store in guild storage "roll/gm" scope
 			//	- get first member of gm role in channel
 			//	- if no gm role or gm member found, error
 			//	- command to set gm role name

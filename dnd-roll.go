@@ -223,26 +223,24 @@ func init() {
 					vals = append(vals, rollVals...)
 				}
 
-				// handle rolled values
+				// handle exploding die
 				for i := 0; i < len(vals); i++ {
 					num := vals[i]
-
-					// exploded ! suffix to rolls of max val
-					exploded := ""
-					if exploding && num == diceVal {
-						exploded = "!"
-					}
-
-					// format output
-					setres = append(setres, fmt.Sprintf("`[%v%s]`", num, exploded))
-
-					// keep exploding
 					if exploding {
 						for num == diceVal {
 							num = int(rand.Int63n(int64(diceVal)) + 1)
 							vals = append(vals, num)
 						}
 					}
+				}
+
+				// handle rolled values
+				for i, num := range vals {
+					exploded := ""
+					if i > numDice-1 {
+						exploded = "!"
+					}
+					setres = append(setres, fmt.Sprintf("`[%s%v]`", exploded, num))
 				}
 
 				// sum it up

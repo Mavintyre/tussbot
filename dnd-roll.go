@@ -225,12 +225,16 @@ func init() {
 				}
 
 				// handle exploding die
-				for i := 0; i < len(vals); i++ {
-					num := vals[i]
-					if exploding {
-						for num == diceVal {
-							num = int(rand.Int63n(int64(diceVal)) + 1)
-							vals = append(vals, num)
+				if exploding {
+					for _, num := range vals {
+						if num == diceVal {
+							newNum := int(rand.Int63n(int64(diceVal)) + 1)
+							vals = append(vals, newNum)
+							for newNum == diceVal {
+								newNum = int(rand.Int63n(int64(diceVal)) + 1)
+								vals = append(vals, newNum)
+							}
+
 						}
 					}
 				}

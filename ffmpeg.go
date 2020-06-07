@@ -3,7 +3,6 @@ package main
 import (
 	"bufio"
 	"bytes"
-	"encoding/binary"
 	"errors"
 	"fmt"
 	"io"
@@ -17,52 +16,38 @@ import (
 	"github.com/dougty/tussbot/ogg" // github.com/jonas747/ogg
 )
 
-type frame struct {
-	data     []byte
-	metaData bool
-}
+var userAgent = "Mozilla/5.0 (X11; Linux x86_64; rv:77.0) Gecko/20100101 Firefox/77.0"
+var referer = "https://www.youtube.com/"
 
-// Session of ffmpeg encoder & streamer
-type Session struct {
+// FFMPEGSession of encoder & streamer
+type FFMPEGSession struct {
 	sync.Mutex
-	running     bool
+	encoding    bool
 	streaming   bool
-	started     time.Time
 	ffmpeg      *os.Process
-	frameBuffer chan *frame
+	frameBuffer chan []byte
 	done        chan error
 	paused      bool
 	volume      float64
 	framesSent  int
-	streamvc    *discordgo.VoiceConnection
+	voiceCh     *discordgo.VoiceConnection
 }
 
 var frameDuration = 20 // 20, 40, or 60 ms
 
-// TO DO: usage
-//	done := make(chan error)
-//	session := Start(url, vc, done)
-//	ticker := time.NewTicker(time.Second*10)
-//	for loop, select
-//	case err:= <-done
-//	unwrap err
-//	if != nil and != io.EOF
-//		send error
-//	case <-ticker.C
-//	get session.time() & update embed
-
 // Start an ffmpeg session and begin streaming
-//	`done` channel can signal io.EOF for natural end of stream or a legitimate error
-func (s *Session) Start(url string, vc *discordgo.VoiceConnection, done chan error) {
-	defer s.Unlock()
+//	`done` channel signals io.EOF for natural end of stream as well as legitimate errors
+func (s *FFMPEGSession) Start(url string, vc *discordgo.VoiceConnection, done chan error) {
+	s.done = done
+	s.voiceCh = vc
 
 	s.Lock()
-	if s.running {
+	if s.encoding {
 		s.Stop()
 	}
 
-	defer close(s.frameBuffer)
-	s.running = true
+	s.encoding = true
+	s.volume = 1
 
 	args := []string{
 		// "-ss", seek,
@@ -72,14 +57,14 @@ func (s *Session) Start(url string, vc *discordgo.VoiceConnection, done chan err
 		"-reconnect_streamed", "1",
 		"-reconnect_delay_max", "4",
 
-		//"-user_agent", user_agent,
-		//"-referer", referer,
+		"-user_agent", userAgent,
+		"-referer", referer,
 
 		"-vn",
-		"-map", "0:a", // audio only
+		"-map", "0:a",
 
 		"-acodec", "libopus",
-		"-f", "opus", // ogg
+		"-f", "ogg",
 
 		"-analyzeduration", "0",
 		"-probesize", "1000000", // 1mb - min 32 default 5000000
@@ -87,7 +72,7 @@ func (s *Session) Start(url string, vc *discordgo.VoiceConnection, done chan err
 		"-fflags", "+fastseek+nobuffer+flush_packets+discardcorrupt",
 		"-flush_packets", "1",
 
-		//"-vbr", "off" // on
+		"-vbr", "on",
 		"-compression_level", "10", // 0-10, higher = better but slower
 		"-application", "audio", // voip = speech, audio, lowdelay
 		"-frame_duration", strconv.Itoa(frameDuration),
@@ -98,8 +83,8 @@ func (s *Session) Start(url string, vc *discordgo.VoiceConnection, done chan err
 		"-ar", "48000",
 		"-ac", "2",
 
-		"-b:a", "64000",
-		"-af", fmt.Sprintf("loudnorm,volume=%.2f", s.volume),
+		"-b:a", "96000", // TO DO: get from channel
+		"-af", fmt.Sprintf("loudnorm,volume=%.2f", s.volume), // TO DO: allow for changing volume
 
 		"-loglevel", "16",
 		"pipe:1",
@@ -109,32 +94,36 @@ func (s *Session) Start(url string, vc *discordgo.VoiceConnection, done chan err
 
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
+		s.Unlock()
 		done <- fmt.Errorf("error starting stdout pipe: %w", err)
 		return
 	}
 
 	stderr, err := cmd.StderrPipe()
 	if err != nil {
+		s.Unlock()
 		done <- fmt.Errorf("error starting stderr pipe: %w", err)
 		return
 	}
 
+	s.frameBuffer = make(chan []byte, frameDuration*5)
+	defer close(s.frameBuffer)
+
 	err = cmd.Start()
 	if err != nil {
+		s.Unlock()
 		done <- fmt.Errorf("error starting ffmpeg process: %w", err)
 		return
 	}
 
-	s.started = time.Now()
 	s.ffmpeg = cmd.Process
-	s.streamvc = vc
-	s.Unlock() // unlock early
+	s.Unlock()
 
 	var wg sync.WaitGroup
 	wg.Add(2)
+	go s.StartStream()
 	go s.readStdout(stdout, &wg)
 	go s.readStderr(stderr, &wg)
-	go s.StartStream()
 
 	wg.Wait()
 	err = cmd.Wait()
@@ -143,10 +132,13 @@ func (s *Session) Start(url string, vc *discordgo.VoiceConnection, done chan err
 			done <- fmt.Errorf("ffmpeg error: %w", err)
 		}
 	}
-	s.running = false
+
+	s.Lock()
+	s.encoding = false
+	s.Unlock()
 }
 
-func (s *Session) readStderr(stderr io.ReadCloser, wg *sync.WaitGroup) {
+func (s *FFMPEGSession) readStderr(stderr io.ReadCloser, wg *sync.WaitGroup) {
 	defer wg.Done()
 
 	bufReader := bufio.NewReader(stderr)
@@ -161,6 +153,7 @@ func (s *Session) readStderr(stderr io.ReadCloser, wg *sync.WaitGroup) {
 		}
 
 		if r == '\n' {
+			// TO DO: save to string, send error to owner on encoding completion
 			fmt.Println("[ffmpeg] ", outBuf.String())
 			outBuf.Reset()
 		} else {
@@ -169,7 +162,7 @@ func (s *Session) readStderr(stderr io.ReadCloser, wg *sync.WaitGroup) {
 	}
 }
 
-func (s *Session) readStdout(stdout io.ReadCloser, wg *sync.WaitGroup) {
+func (s *FFMPEGSession) readStdout(stdout io.ReadCloser, wg *sync.WaitGroup) {
 	defer wg.Done()
 
 	decoder := ogg.NewPacketDecoder(ogg.NewDecoder(stdout))
@@ -185,79 +178,60 @@ func (s *Session) readStdout(stdout io.ReadCloser, wg *sync.WaitGroup) {
 			if err != io.EOF {
 				s.done <- fmt.Errorf("ffmpeg stdout error: %w", err)
 			}
+			s.frameBuffer <- nil
 			break
 		}
 
-		err = s.writeDCAFrame(packet)
-		if err != nil {
-			s.done <- fmt.Errorf("error writing dca frame: %w", err)
-			break
-		}
+		s.frameBuffer <- packet
 	}
-}
-
-func (s *Session) writeDCAFrame(opusFrame []byte) error {
-	var dcaBuf bytes.Buffer
-
-	err := binary.Write(&dcaBuf, binary.LittleEndian, uint16(len(opusFrame)))
-	if err != nil {
-		return err
-	}
-
-	_, err = dcaBuf.Write(opusFrame)
-	if err != nil {
-		return err
-	}
-
-	s.frameBuffer <- &frame{dcaBuf.Bytes(), false}
-	return nil
 }
 
 // GetFrame returns a single frame of DCA encoded Opus
-func (s *Session) GetFrame() (frame []byte, err error) {
+func (s *FFMPEGSession) GetFrame() (frame []byte, err error) {
 	f := <-s.frameBuffer
 	if f == nil {
 		return nil, io.EOF
 	}
 
-	if len(f.data) < 2 {
-		return nil, errors.New("bad frame")
-	}
-
-	return f.data[2:], nil
+	return f, nil
 }
 
 // StartStream to discordgo voice connection
-func (s *Session) StartStream() {
+func (s *FFMPEGSession) StartStream() {
 	s.Lock()
-	defer s.Unlock()
 
-	if s.streaming {
+	if s.streaming || s.paused {
+		s.Unlock()
 		return
 	}
 
+	s.streaming = true
+	s.Unlock()
+
 	for {
-		if s.paused || !s.streaming {
+		s.Lock()
+		if s.paused {
+			s.Unlock()
 			return
 		}
-		s.Unlock() // unlock early
+		s.Unlock()
 
-		s.streaming = true
 		frame, err := s.GetFrame()
 		if err != nil {
-			s.done <- fmt.Errorf("error getting dca frame: %w", err)
+			s.done <- fmt.Errorf("error getting opus frame: %w", err)
 			break
 		}
 
-		// timeout after 100ms (maybe this needs to be changed?)
+		// timeout after 100ms
+		// TO DO: is this adequate? too big? too small?
 		timeout := time.After(time.Second)
 
-		// try to send on the voice channel before the timeout
 		select {
 		case <-timeout:
 			s.done <- errors.New("voice connection timed out")
 			break
-		case s.streamvc.OpusSend <- frame:
+		case s.voiceCh.OpusSend <- frame:
+			// packet has been sent
 		}
 
 		s.Lock()
@@ -271,49 +245,41 @@ func (s *Session) StartStream() {
 }
 
 // CurrentTime returns current playback position
-func (s *Session) CurrentTime() time.Duration {
+func (s *FFMPEGSession) CurrentTime() time.Duration {
 	s.Lock()
 	defer s.Unlock()
-	return time.Duration(s.framesSent) * time.Duration(frameDuration) * time.Millisecond
+	return time.Duration(s.framesSent*frameDuration) * time.Millisecond
 }
 
 // SetPaused state and stop or restart stream
-func (s *Session) SetPaused(p bool) {
+func (s *FFMPEGSession) SetPaused(p bool) {
 	s.Lock()
 	defer s.Unlock()
 
+	// paused == true will break the stream loop
 	s.paused = p
-	if p {
-		s.StopStream()
-	} else {
+	if p == false {
 		s.StartStream()
 	}
 }
 
 // StopEncoder kill process and clean up remaining unstreamed frames
-func (s *Session) StopEncoder() {
+func (s *FFMPEGSession) StopEncoder() {
 	s.Lock()
 	defer s.Unlock()
 
 	if s.ffmpeg != nil {
 		s.ffmpeg.Kill()
 	}
-	s.running = false
+	s.encoding = false
 
 	for range s.frameBuffer {
 		// empty remaining frames
 	}
 }
 
-// StopStream sets streaming=false, stopping the streaming loop goroutine
-func (s *Session) StopStream() {
-	s.Lock()
-	defer s.Unlock()
-	s.streaming = false
-}
-
-// Stop stream, encoder, ffmpeg process, and clean up
-func (s *Session) Stop() {
-	s.StopStream()
+// Stop everything and clean up
+func (s *FFMPEGSession) Stop() {
+	s.SetPaused(true)
 	s.StopEncoder()
 }

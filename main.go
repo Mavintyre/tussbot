@@ -69,7 +69,6 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		return
 	}
 
-	// TO DO: is 'go' here necessary? (lib should spawn messageCreate with go)
-	//	test to see if there's stalling, once ffmpeg is integrated
+	// "go" is unnecessary here as lib already calls "go messageCreate..."
 	HandleCommand(s, m.Message)
 }

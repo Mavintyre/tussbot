@@ -96,10 +96,9 @@ func init() {
 		help: `roll some dice with realistic probability\n
 		^!roll d6^ - roll a dice with 6 faces
 		^!roll 2d6^ - roll 2 dice with 6 faces
-		^!roll 2d6+1^ - roll 2d6 with an extra die
-		^!roll 2d6-1^ - roll 2d6 minus one die
-		^!roll 2d6!^ - roll 2d6 with exploding re-rolls
 		^!roll 2d6#^ - roll 2d6 and show their sum
+		^!roll 2d6+1^ - roll 2d6 with a modifier (always shows sum)
+		^!roll 2d6!^ - roll 2d6 with exploding re-rolls
 		^!roll gm 2d6^ - roll that only you and the GM can see
 		^$roll 2d6 3d20^ - roll multiple sets of dice
 		^!roll 2d6 risky standard^ - tag a roll's output
@@ -154,23 +153,23 @@ func init() {
 					str = "1" + str
 				}
 
-				// bonus die
-				numoffset := 0
-				extrareg := regexp.MustCompile(`([+-]\d+)`)
-				if extrareg.MatchString(str) {
-					extramatch := extrareg.FindAllString(str, -1)
-					if len(extramatch) < 1 {
-						SendError(ca, "error capturing extra die syntax")
+				// sum modifier
+				modifier := 0
+				modreg := regexp.MustCompile(`([+-]\d+)`)
+				if modreg.MatchString(str) {
+					modmatch := modreg.FindAllString(str, -1)
+					if len(modmatch) < 1 {
+						SendError(ca, "error capturing modifier syntax")
 						return
 					}
-					extrastr := extramatch[0]
-					str = strings.Replace(str, extrastr, "", -1)
-					extra, err := strconv.Atoi(extrastr)
+					modstr := modmatch[0]
+					str = strings.Replace(str, modstr, "", -1)
+					mod, err := strconv.Atoi(modstr)
 					if err != nil {
-						SendError(ca, "couldn't parse extra die"+err.Error())
+						SendError(ca, "couldn't parse modifier"+err.Error())
 						return
 					}
-					numoffset = extra
+					modifier = mod
 				}
 
 				// split into value and number of die
@@ -194,6 +193,11 @@ func init() {
 					}
 				}
 
+				// imply # when using sum modifier
+				if modifier > 0 {
+					getSum = true
+				}
+
 				// parse number of dice and value
 				numDice, err := strconv.Atoi(split[0])
 				if err != nil {
@@ -205,7 +209,6 @@ func init() {
 					SendError(ca, "couldn't parse dice value"+err.Error())
 					return
 				}
-				numDice += numoffset
 
 				// roll die
 				var vals []int
@@ -234,11 +237,20 @@ func init() {
 
 				// handle rolled values
 				for i, num := range vals {
-					exploded := ""
-					if i > numDice-1 {
-						exploded = "!"
+					wrap := ""
+					spacer := ""
+					if i == numDice {
+						spacer = " ! "
+					} else {
+						spacer = ""
 					}
-					setres = append(setres, fmt.Sprintf("`[%s%v]`", exploded, num))
+					if i > numDice-1 {
+						wrap = "*"
+					}
+					if num == diceVal {
+						wrap += "**"
+					}
+					setres = append(setres, fmt.Sprintf("%s%s`[%v]`%s", spacer, wrap, num, wrap))
 				}
 
 				// sum it up
@@ -248,7 +260,12 @@ func init() {
 					for _, num := range vals {
 						total += num
 					}
-					sum = fmt.Sprintf(" *= %d*", total)
+					if modifier > 0 {
+						total += modifier
+						sum = fmt.Sprintf(" *+ %d = **%d***", modifier, total)
+					} else {
+						sum = fmt.Sprintf(" *= %d*", total)
+					}
 				}
 
 				results = append(results, strings.Join(setres, " ")+sum)

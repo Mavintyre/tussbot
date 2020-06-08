@@ -303,6 +303,7 @@ func init() {
 				SendErrorTemp(ca, fmt.Sprintf("couldn't parse volume: %s", err), errorTimeout)
 				return true
 			}
+			vol = ClampF(vol, 0.1, 1.5)
 
 			ms := getGuildSession(ca)
 
@@ -311,7 +312,6 @@ func init() {
 			ms.Unlock()
 
 			ms.Restart(-1)
-
 			return true
 		}})
 
@@ -333,13 +333,7 @@ func init() {
 			}
 
 			ms := getGuildSession(ca)
-
 			ms.Restart(seek)
-
 			return true
 		}})
-
-	// TO DO: volume clamp
-	// TO DO: volume in embed
-	// TO DO: update embed on loop change
 }

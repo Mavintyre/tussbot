@@ -102,6 +102,7 @@ func (ms *musicSession) Loop() {
 	defer ms.Unlock()
 
 	ms.looping = !ms.looping
+	ms.updateEmbed()
 }
 
 func (ms *musicSession) Replay(caller *discordgo.Member) {

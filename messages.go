@@ -35,7 +35,7 @@ func formatTokens(str string) string {
 // SendReply to a message's source channel with a string -- returns message and error
 func SendReply(ca CommandArgs, str string) (*discordgo.Message, error) {
 	str = formatTokens(str)
-	str = StrClamp(str, 2000)
+	str = ClampStr(str, 2000)
 
 	ch := ""
 	if ca.chO != "" {
@@ -53,24 +53,24 @@ func SendReply(ca CommandArgs, str string) (*discordgo.Message, error) {
 }
 
 func limitEmbedLength(em *discordgo.MessageEmbed) *discordgo.MessageEmbed {
-	em.Title = StrClamp(formatTokens(em.Title), 256)
-	em.Description = StrClamp(formatTokens(em.Description), 2048)
+	em.Title = ClampStr(formatTokens(em.Title), 256)
+	em.Description = ClampStr(formatTokens(em.Description), 2048)
 
 	for len(em.Fields) > 25 {
 		em.Fields = em.Fields[:len(em.Fields)-1]
 	}
 
 	for _, field := range em.Fields {
-		field.Name = StrClamp(formatTokens(field.Name), 256)
-		field.Value = StrClamp(formatTokens(field.Value), 1024)
+		field.Name = ClampStr(formatTokens(field.Name), 256)
+		field.Value = ClampStr(formatTokens(field.Value), 1024)
 	}
 
 	if em.Footer != nil {
-		em.Footer.Text = StrClamp(formatTokens(em.Footer.Text), 2048)
+		em.Footer.Text = ClampStr(formatTokens(em.Footer.Text), 2048)
 	}
 
 	if em.Author != nil {
-		em.Author.Name = StrClamp(em.Author.Name, 256)
+		em.Author.Name = ClampStr(em.Author.Name, 256)
 	}
 
 	return em
@@ -100,7 +100,7 @@ func SendEmbed(ca CommandArgs, em *discordgo.MessageEmbed) (*discordgo.Message, 
 func EditMessage(ca CommandArgs, me *discordgo.MessageEdit) error {
 	if me.Content != nil {
 		content := *me.Content
-		content = StrClamp(content, 2000)
+		content = ClampStr(content, 2000)
 		me.Content = &content
 	}
 
@@ -160,7 +160,7 @@ func SendError(ca CommandArgs, str string) *discordgo.Message {
 		user = ca.msg.Author
 	}
 
-	msg, err := ca.sess.ChannelMessageSendEmbed(ch, &discordgo.MessageEmbed{Description: StrClamp(str, 2000), Color: 0xff0000,
+	msg, err := ca.sess.ChannelMessageSendEmbed(ch, &discordgo.MessageEmbed{Description: ClampStr(str, 2000), Color: 0xff0000,
 		Footer: &discordgo.MessageEmbedFooter{Text: ca.content}, Author: &discordgo.MessageEmbedAuthor{Name: "error", IconURL: user.AvatarURL("")}})
 	if err != nil {
 		err = fmt.Errorf("error sending error in %s: %w", GetChannelName(ca.sess, ch), err)

@@ -64,7 +64,7 @@ func HandleCommand(s *discordgo.Session, m *discordgo.Message) {
 				return
 			}
 			stack = strings.Replace(stack, "	", ">", -1)
-			SendReply(CommandArgs{sess: s, chO: ch.ID}, fmt.Sprintf("`<Recovered panic in HandleCommand>`\n```%s```", StrClamp(stack, 1957)))
+			SendReply(CommandArgs{sess: s, chO: ch.ID}, fmt.Sprintf("`<Recovered panic in HandleCommand>`\n```%s```", ClampStr(stack, 1957)))
 		}
 	}()
 

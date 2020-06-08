@@ -7,8 +7,8 @@ import (
 	"github.com/bwmarrin/discordgo"
 )
 
-// Clamp an integer between two values
-func Clamp(num int, min int, max int) int {
+// ClampI an integer between two values
+func ClampI(num int, min int, max int) int {
 	if num > max {
 		return max
 	}
@@ -18,8 +18,19 @@ func Clamp(num int, min int, max int) int {
 	return num
 }
 
-// StrClamp returns a string clamped to max length
-func StrClamp(str string, max int) string {
+// ClampF a float between two values
+func ClampF(num float64, min float64, max float64) float64 {
+	if num > max {
+		return max
+	}
+	if num < min {
+		return min
+	}
+	return num
+}
+
+// ClampStr returns a string clamped to max length
+func ClampStr(str string, max int) string {
 	length := len(str)
 	if length > max {
 		return str[:max]

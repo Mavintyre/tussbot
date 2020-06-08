@@ -192,7 +192,8 @@ func init() {
 			}
 
 			// parse url and queue song
-			s, err := ytdl(ca.content)
+			// note: ytdl is blocking!
+			s, err := YTDL(ca.content)
 			if err != nil {
 				SendErrorTemp(ca, fmt.Sprintf("error querying song: %s", err), errorTimeout)
 				return true

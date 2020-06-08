@@ -24,7 +24,9 @@ type ytdlJSON struct {
 	Duration  float64
 }
 
-func ytdl(url string) (*songInfo, error) {
+// YTDL runs a youtube-dl child process and returns songInfo for a URL
+//	Note: function is blocking
+func YTDL(url string) (*SongInfo, error) {
 	args := []string{
 		url,
 		"-J",
@@ -50,7 +52,7 @@ func ytdl(url string) (*songInfo, error) {
 		return nil, errors.New("no streams found")
 	}
 
-	song := &songInfo{}
+	song := &SongInfo{}
 	song.URL = url
 	song.Title = js.Title
 	song.Thumbnail = js.Thumbnail

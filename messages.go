@@ -149,8 +149,9 @@ func SendError(ca CommandArgs, str string) *discordgo.Message {
 		ch = ca.msg.ChannelID
 	}
 
-	// TO DO: add ca.author icon and command as footer
-	msg, err := ca.sess.ChannelMessageSendEmbed(ch, &discordgo.MessageEmbed{Title: "error", Description: StrClamp(str, 2000), Color: 0xff0000})
+	// TO DO: is there any instance where the author avatar will break this?
+	msg, err := ca.sess.ChannelMessageSendEmbed(ch, &discordgo.MessageEmbed{Description: StrClamp(str, 2000), Color: 0xff0000,
+		Footer: &discordgo.MessageEmbedFooter{Text: ca.content}, Author: &discordgo.MessageEmbedAuthor{Name: "error", IconURL: ca.msg.Author.AvatarURL("")}})
 	if err != nil {
 		err = fmt.Errorf("error sending error in %s: %w", GetChannelName(ca.sess, ch), err)
 		fmt.Println(err)

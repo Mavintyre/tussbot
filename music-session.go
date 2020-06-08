@@ -4,14 +4,16 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"strconv"
 	"sync"
 	"time"
 
 	"github.com/bwmarrin/discordgo"
 )
 
-type songInfo struct {
+var embedUpdateFreq = 30
+
+// SongInfo stores data for one song in the queue
+type SongInfo struct {
 	URL       string
 	Title     string
 	Thumbnail string
@@ -22,7 +24,7 @@ type songInfo struct {
 
 type musicSession struct {
 	sync.Mutex
-	queue     []*songInfo
+	queue     []*SongInfo
 	playing   bool
 	done      chan error
 	ffmpeg    *FFMPEGSession
@@ -31,7 +33,7 @@ type musicSession struct {
 	sess      *discordgo.Session
 	guild     string
 	musicChan string
-	embedID   string // TO DO: save this
+	embedID   string
 	embedBM   *ButtonizedMessage
 }
 
@@ -65,6 +67,8 @@ func (ms *musicSession) Skip() {
 }
 
 func (ms *musicSession) Stop() {
+	// TO DO: reset embed on stop/disconnect timeout and queue len == 0
+
 	ms.Lock()
 	defer ms.Unlock()
 
@@ -79,7 +83,7 @@ func (ms *musicSession) Stop() {
 }
 
 func (ms *musicSession) queueLoop() {
-	ticker := time.NewTicker(time.Second * 10)
+	ticker := time.NewTicker(time.Second * time.Duration(embedUpdateFreq))
 	for {
 		select {
 		case err := <-ms.done:
@@ -114,23 +118,31 @@ func (ms *musicSession) queueLoop() {
 	}
 }
 
-func (ms *musicSession) makeEmbed() *discordgo.MessageEdit {
-	// TO DO: finish this
+func fmtDuration(d time.Duration) string {
+	d = d.Round(time.Second)
+	m := d / time.Minute
+	d -= m * time.Minute
+	s := d / time.Second
+	return fmt.Sprintf("%02d:%02d", m, s)
+}
 
+func (ms *musicSession) makeEmbed() *discordgo.MessageEdit {
 	me := &discordgo.MessageEdit{}
 	//me.Content = queue
 	em := &discordgo.MessageEmbed{}
 	if len(ms.queue) > 0 {
-		em.Title = "[length] song name"
-		// link
-		// image
-		em.Description = "queued by dude"
-		em.Footer = &discordgo.MessageEmbedFooter{Text: strconv.Itoa(int(ms.ffmpeg.CurrentTime().Seconds()))}
+		s := ms.queue[0]
+		length := fmtDuration(s.Duration)
+		em.Title = fmt.Sprintf("[%s] %s", length, s.Title)
+		em.URL = s.URL
+		em.Image = &discordgo.MessageEmbedImage{URL: s.Thumbnail}
+		em.Description = fmt.Sprintf("queued by `%s`", s.QueuedBy)
+		em.Footer = &discordgo.MessageEmbedFooter{Text: fmt.Sprintf("current time: %s / %s\nupdates every %ds",
+			fmtDuration(ms.ffmpeg.CurrentTime()), length, embedUpdateFreq)}
 	} else {
 		em.Title = "no song playing"
 	}
 	me.Embed = em
-	// buttons
 	return me
 }
 

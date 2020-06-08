@@ -109,7 +109,8 @@ func drawSpikes() error {
 	ctx.SetHexColor("#fff")
 	ctx.RotateAbout(gg.Radians(180), cx, cy)
 	offset := cx + 5*scale + 10
-	ctx.DrawStringWrapped(strings.ToUpper("Crows: Reestablish control of crow's foot"), offset+float64(width/3), float64(height)/2, 0.5, 0.5, float64(width)-offset, 1.1, gg.AlignCenter)
+	ctx.DrawStringWrapped(strings.ToUpper("Crows: Reestablish control of crow's foot"), offset+float64(width/3),
+		float64(height)/2, 0.5, 0.5, float64(width)-offset, 1.1, gg.AlignCenter)
 
 	ctx.SavePNG("out.png")
 

@@ -27,8 +27,8 @@ type musicSession struct {
 	ffmpeg  *FFMPEGSession
 	vc      *discordgo.VoiceConnection
 	vch     *discordgo.Channel
-	ca      CommandArgs
-	embed   string
+	ca      CommandArgs // TO DO: replace this with guild text channel
+	embed   string      // TO DO: save this?
 }
 
 func (ms *musicSession) play() {
@@ -77,20 +77,28 @@ func (ms *musicSession) queueLoop() {
 	}
 }
 
-func (ms *musicSession) updateEmbed() {
-	// TO DO: split in 2 funcs:
-	//	- createEmbed - returns Embed{}
-	//	- updateEmbed - updates current embed msg
-
-	msg, err := ms.ca.sess.ChannelMessage(ms.ca.ch, ms.embed)
-	if err != nil {
-		SendError(ms.ca, fmt.Sprintf("error getting embed message: %s", err))
-		return
+func (ms *musicSession) createEmbed() *discordgo.MessageEdit {
+	me := &discordgo.MessageEdit{}
+	//me.Content = queue
+	em := &discordgo.MessageEmbed{}
+	if len(ms.queue) > 0 {
+		em.Title = "[length] song name"
+		// link
+		// image
+		em.Description = "queued by dude"
+	} else {
+		em.Title = "no song playing"
 	}
+	me.Embed = em
+	// buttons
+	return me
+}
 
-	me := &discordgo.MessageEdit{Channel: ms.ca.ch, ID: msg.ID}
-	me.Embed = &discordgo.MessageEmbed{}
-	ms.ca.sess.ChannelMessageEditComplex(me)
+func (ms *musicSession) updateEmbed() {
+	me := ms.createEmbed()
+	me.Channel = ms.ca.ch
+	me.ID = ms.embed
+	EditMessage(ms.ca, me)
 }
 
 func getVoiceChannel(ca CommandArgs) (*discordgo.Channel, *discordgo.VoiceState, error) {
@@ -262,6 +270,8 @@ func init() {
 			ms.play()
 			go ms.queueLoop()
 			fmt.Println("playing")
+
+			// TO DO: delete msg
 		},
 	})
 
@@ -277,6 +287,7 @@ func init() {
 
 			// TO DO: replace setPaused?
 			ms.ffmpeg.SetPaused(!ms.ffmpeg.Paused())
+			// TO DO: delete msg
 		}})
 
 	RegisterCommand(Command{
@@ -295,6 +306,7 @@ func init() {
 			if ms.playing {
 				ms.ffmpeg.Stop()
 			}
+			// TO DO: delete msg
 		}})
 
 	RegisterCommand(Command{
@@ -316,6 +328,7 @@ func init() {
 				ms.ffmpeg.Stop()
 				ms.vc.Disconnect()
 			}
+			// TO DO: delete msg
 		}})
 
 	RegisterCommand(Command{
@@ -328,6 +341,20 @@ func init() {
 		adminOnly: true,
 		callback: func(ca CommandArgs) {
 			setGuildMusicChannel(ca.msg.GuildID, ca.msg.ChannelID)
-			// TO DO: create initial (empty) embed
+			//create initial empty embed
+			ms := getGuildSession(ca)
+			me := ms.createEmbed()
+			msg, err := SendEmbed(ca, me.Embed)
+			if err == nil {
+				bm := ButtonizeMessage(ca.sess, msg)
+				// TO DO: getEmbed function used in update (and here)
+				// remakes ButtonizeMessage if it doesn't exist
+				// store only ID, if ms.bm == nil remake
+				bm.Handle("💯", func(bm *ButtonizedMessage) {
+					fmt.Println("caught 💯")
+				})
+				bm.Listen()
+			}
+			// TO DO: delete msg
 		}})
 }

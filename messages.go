@@ -51,9 +51,7 @@ func SendReply(ca CommandArgs, str string) (*discordgo.Message, error) {
 	return nm, err
 }
 
-// SendEmbed to a message's source channel with an embed
-//	only title, description, field names & values, and footer text are run through formatTokens
-func SendEmbed(ca CommandArgs, em *discordgo.MessageEmbed) (*discordgo.Message, error) {
+func limitEmbedLength(em *discordgo.MessageEmbed) *discordgo.MessageEmbed {
 	em.Title = StrClamp(formatTokens(em.Title), 256)
 	em.Description = StrClamp(formatTokens(em.Description), 2048)
 
@@ -74,6 +72,14 @@ func SendEmbed(ca CommandArgs, em *discordgo.MessageEmbed) (*discordgo.Message, 
 		em.Author.Name = StrClamp(em.Author.Name, 256)
 	}
 
+	return em
+}
+
+// SendEmbed to a message's source channel with an embed
+//	only title, description, field names & values, and footer text are run through formatTokens
+func SendEmbed(ca CommandArgs, em *discordgo.MessageEmbed) (*discordgo.Message, error) {
+	em = limitEmbedLength(em)
+
 	ch := ""
 	if ca.ch != "" {
 		ch = ca.ch
@@ -84,6 +90,26 @@ func SendEmbed(ca CommandArgs, em *discordgo.MessageEmbed) (*discordgo.Message, 
 	nm, err := ca.sess.ChannelMessageSendEmbed(ch, em)
 	if err != nil {
 		err = fmt.Errorf("error sending embed in %s: %w", GetChannelName(ca.sess, ch), err)
+		SendError(ca, err.Error())
+	}
+	return nm, err
+}
+
+// EditMessage edits a message while adhereing to string lengths
+func EditMessage(ca CommandArgs, me *discordgo.MessageEdit) (*discordgo.Message, error) {
+	if *me.Content != "" {
+		content := *me.Content
+		content = StrClamp(content, 2000)
+		me.Content = &content
+	}
+
+	if me.Embed != nil {
+		me.Embed = limitEmbedLength(me.Embed)
+	}
+
+	nm, err := ca.sess.ChannelMessageEditComplex(me)
+	if err != nil {
+		err = fmt.Errorf("error editing message in %s: %w", GetChannelName(ca.sess, me.Channel), err)
 		SendError(ca, err.Error())
 	}
 	return nm, err

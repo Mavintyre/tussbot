@@ -39,6 +39,7 @@ type CommandArgs struct {
 	sess    *discordgo.Session
 	msg     *discordgo.Message
 	chO     string
+	usrO    string
 	cmd     *Command
 	alias   string
 	args    string

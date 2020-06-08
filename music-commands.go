@@ -18,20 +18,20 @@ var allowedLinks = []string{`youtube\.com\/watch\?v=.+`,
 	`soundcloud\.com\/.+\/.+`,
 	`.+\.bandcamp\.com\/track\/.+`}
 
-func getVoiceChannel(ca CommandArgs) (*discordgo.Channel, *discordgo.VoiceState, error) {
-	tc, err := ca.sess.State.Channel(ca.msg.ChannelID)
+func getVoiceChannel(sess *discordgo.Session, ch string, uid string) (*discordgo.Channel, *discordgo.VoiceState, error) {
+	tc, err := sess.State.Channel(ch)
 	if err != nil {
 		return nil, nil, fmt.Errorf("couldn't find text channel: %w", err)
 	}
 
-	g, err := ca.sess.State.Guild(tc.GuildID)
+	g, err := sess.State.Guild(tc.GuildID)
 	if err != nil {
 		return nil, nil, fmt.Errorf("couldn't find guild: %w", err)
 	}
 
 	for _, vs := range g.VoiceStates {
-		if vs.UserID == ca.msg.Author.ID {
-			vch, err := ca.sess.State.Channel(vs.ChannelID)
+		if vs.UserID == uid {
+			vch, err := sess.State.Channel(vs.ChannelID)
 			if err != nil {
 				return nil, nil, fmt.Errorf("couldn't find voice channel: %w", err)
 			}
@@ -43,8 +43,8 @@ func getVoiceChannel(ca CommandArgs) (*discordgo.Channel, *discordgo.VoiceState,
 	return nil, nil, errors.New("user not in a visible voice channel")
 }
 
-func joinVoiceChannel(ca CommandArgs, vs *discordgo.VoiceState) (*discordgo.VoiceConnection, error) {
-	vc, err := ca.sess.ChannelVoiceJoin(vs.GuildID, vs.ChannelID, false, true)
+func joinVoiceChannel(sess *discordgo.Session, vs *discordgo.VoiceState) (*discordgo.VoiceConnection, error) {
+	vc, err := sess.ChannelVoiceJoin(vs.GuildID, vs.ChannelID, false, true)
 	if err != nil {
 		return nil, fmt.Errorf("couldn't join voice channel: %w", err)
 	}
@@ -123,6 +123,59 @@ func isMusicChannel(ca CommandArgs) bool {
 	return true
 }
 
+func getVoiceState(ms *musicSession, sess *discordgo.Session, ch string, uid string) (*discordgo.VoiceState, *discordgo.Channel, bool) {
+	ca := CommandArgs{sess: sess, chO: ch, usrO: uid}
+
+	// check if user is in same channel
+	vch, vs, err := getVoiceChannel(sess, ch, uid)
+	if err != nil {
+		SendErrorTemp(ca, fmt.Sprintf("%s", err), errorTimeout)
+		return nil, nil, false
+	}
+
+	ms.Lock()
+	playing := ms.playing
+	currentChan := ms.voiceChan
+	ms.Unlock()
+
+	if playing && currentChan != nil && vch.ID != currentChan.ID {
+		SendErrorTemp(ca, "already playing in a different channel", errorTimeout)
+		return nil, nil, false
+	}
+
+	return vs, vch, true
+}
+
+func queueSong(ms *musicSession, sess *discordgo.Session, vs *discordgo.VoiceState, vch *discordgo.Channel, uid string, song *SongInfo) {
+	ca := CommandArgs{sess: sess, chO: vch.ID, usrO: uid}
+
+	ms.Lock()
+	ms.queue = append(ms.queue, song)
+	playing := ms.playing
+	ms.Unlock()
+
+	if playing {
+		ms.updateEmbed()
+		return
+	}
+
+	// join channel if not already playing
+	vc, err := joinVoiceChannel(sess, vs)
+	if err != nil {
+		SendErrorTemp(ca, fmt.Sprintf("%s", err), errorTimeout)
+		return
+	}
+
+	// start ffmpeg session
+	ms.Lock()
+	ms.voiceConn = vc
+	ms.voiceChan = vch
+	ms.Unlock()
+
+	ms.Play()
+	go ms.queueLoop()
+}
+
 func init() {
 	// initialize session list
 	listMutex = sync.Mutex{}
@@ -173,57 +226,21 @@ func init() {
 
 			ms := getGuildSession(ca)
 
-			// check if user is in same channel
-			vch, vs, err := getVoiceChannel(ca)
-			if err != nil {
-				SendErrorTemp(ca, fmt.Sprintf("%s", err), errorTimeout)
-				return true
-			}
-
-			ms.Lock()
-			playing := ms.playing
-			currentChan := ms.voiceChan
-			ms.Unlock()
-
-			if playing && currentChan != nil && vch.ID != currentChan.ID {
-				SendErrorTemp(ca, "already playing in a different channel", errorTimeout)
+			vs, vch, ok := getVoiceState(ms, ca.sess, ca.msg.ChannelID, ca.msg.Author.ID)
+			if !ok {
 				return true
 			}
 
 			// parse url and queue song
 			// note: ytdl is blocking!
-			s, err := YTDL(ca.content)
+			song, err := YTDL(ca.content)
 			if err != nil {
 				SendErrorTemp(ca, fmt.Sprintf("error querying song: %s", err), errorTimeout)
 				return true
 			}
 
-			s.QueuedBy = ca.msg.Member.Nick
-
-			ms.Lock()
-			ms.queue = append(ms.queue, s)
-			ms.Unlock()
-
-			if playing {
-				ms.updateEmbed()
-				return true
-			}
-
-			// join channel if not already playing
-			vc, err := joinVoiceChannel(ca, vs)
-			if err != nil {
-				SendErrorTemp(ca, fmt.Sprintf("%s", err), errorTimeout)
-				return true
-			}
-
-			// start ffmpeg session
-			ms.Lock()
-			ms.voiceConn = vc
-			ms.voiceChan = vch
-			ms.Unlock()
-
-			ms.Play()
-			go ms.queueLoop()
+			song.QueuedBy = ca.msg.Member.Nick
+			queueSong(ms, ca.sess, vs, vch, ca.msg.Author.ID, song)
 
 			return true
 		},

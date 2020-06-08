@@ -150,8 +150,18 @@ func SendError(ca CommandArgs, str string) *discordgo.Message {
 	}
 
 	// TO DO: is there any instance where the author avatar will break this?
+	var user *discordgo.User
+	if ca.usrO != "" {
+		u, err := ca.sess.User(ca.usrO)
+		if err != nil {
+			user = u
+		}
+	} else {
+		user = ca.msg.Author
+	}
+
 	msg, err := ca.sess.ChannelMessageSendEmbed(ch, &discordgo.MessageEmbed{Description: StrClamp(str, 2000), Color: 0xff0000,
-		Footer: &discordgo.MessageEmbedFooter{Text: ca.content}, Author: &discordgo.MessageEmbedAuthor{Name: "error", IconURL: ca.msg.Author.AvatarURL("")}})
+		Footer: &discordgo.MessageEmbedFooter{Text: ca.content}, Author: &discordgo.MessageEmbedAuthor{Name: "error", IconURL: user.AvatarURL("")}})
 	if err != nil {
 		err = fmt.Errorf("error sending error in %s: %w", GetChannelName(ca.sess, ch), err)
 		fmt.Println(err)

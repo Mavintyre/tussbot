@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"sync"
 
 	"github.com/bwmarrin/discordgo"
@@ -15,7 +16,7 @@ func nextReaction(sess *discordgo.Session) chan *discordgo.MessageReactionAdd {
 }
 
 // ButtonHandler is a callback function for when a button is pressed
-type ButtonHandler func(*ButtonizedMessage)
+type ButtonHandler func(*ButtonizedMessage, *discordgo.Member)
 
 // ButtonizedMessage contains all info about a buttonized message
 //	Listen must be called after all handlers are set up
@@ -42,7 +43,13 @@ func (bm *ButtonizedMessage) Listen() {
 
 					handler, ok := bm.handlers[emoji]
 					if ok {
-						handler(bm)
+						mem, err := bm.Sess.GuildMember(ev.GuildID, ev.UserID)
+						if err != nil {
+							fmt.Println("couldn't get member for button event")
+							handler(bm, nil)
+						} else {
+							handler(bm, mem)
+						}
 					}
 				}
 			}

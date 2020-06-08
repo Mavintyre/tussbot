@@ -35,6 +35,8 @@ type musicSession struct {
 	musicChan string
 	embedID   string
 	embedBM   *ButtonizedMessage
+	looping   bool
+	lastSong  *SongInfo
 }
 
 func (ms *musicSession) Play() {
@@ -80,6 +82,36 @@ func (ms *musicSession) Stop() {
 	}
 }
 
+func (ms *musicSession) Loop() {
+	ms.Lock()
+	defer ms.Unlock()
+
+	ms.looping = !ms.looping
+}
+
+func (ms *musicSession) Replay(caller *discordgo.Member) {
+	if caller == nil {
+		fmt.Println("no caller found for Replay")
+		return
+	}
+
+	ms.Lock()
+	song := ms.lastSong
+	song.QueuedBy = caller.Nick
+	playing := ms.playing
+	ms.Unlock()
+
+	if playing {
+		ms.updateEmbed()
+	} else {
+		vs, vch, ok := getVoiceState(ms, ms.sess, ms.musicChan, caller.User.ID)
+		if !ok {
+			return
+		}
+		queueSong(ms, ms.sess, vs, vch, caller.User.ID, song)
+	}
+}
+
 func (ms *musicSession) queueLoop() {
 	ticker := time.NewTicker(time.Second * time.Duration(embedUpdateFreq))
 	for {
@@ -91,6 +123,10 @@ func (ms *musicSession) queueLoop() {
 			ms.ffmpeg.Cleanup()
 
 			ms.Lock()
+			if len(ms.queue) > 0 {
+				ms.lastSong = ms.queue[0]
+			}
+
 			if ms.queue == nil || len(ms.queue) < 1 {
 				ms.playing = false
 				ms.Unlock()
@@ -98,7 +134,9 @@ func (ms *musicSession) queueLoop() {
 				return
 			}
 
-			ms.queue = append(ms.queue[:0], ms.queue[1:]...)
+			if !ms.looping {
+				ms.queue = append(ms.queue[:0], ms.queue[1:]...)
+			}
 			newlen := len(ms.queue)
 			ms.Unlock()
 
@@ -144,8 +182,12 @@ func (ms *musicSession) makeEmbed() *discordgo.MessageEdit {
 		em.URL = s.URL
 		em.Image = &discordgo.MessageEmbedImage{URL: s.Thumbnail}
 		em.Description = fmt.Sprintf("queued by `%s`", s.QueuedBy)
-		em.Footer = &discordgo.MessageEmbedFooter{Text: fmt.Sprintf("current time: %s / %s\nupdates every %ds",
-			fmtDuration(ms.ffmpeg.CurrentTime()), length, embedUpdateFreq)}
+		looping := ""
+		if ms.looping {
+			looping = "\n(looping)"
+		}
+		em.Footer = &discordgo.MessageEmbedFooter{Text: fmt.Sprintf("current time: %s / %s\nupdates every %ds%s",
+			fmtDuration(ms.ffmpeg.CurrentTime()), length, embedUpdateFreq, looping)}
 	} else {
 		em.Title = "no song playing"
 		em.Description = "paste in a song link to begin"
@@ -193,20 +235,21 @@ func (ms *musicSession) initEmbed() {
 		// TO DO: loop and replay
 		bm := ButtonizeMessage(ms.sess, msg)
 		go func() {
-			bm.AddHandler("↪", func(bm *ButtonizedMessage) {
-				//ms.Replay()
+			// TO DO: check if caller is in same voice channel before allowing anything
+			bm.AddHandler("↪", func(bm *ButtonizedMessage, caller *discordgo.Member) {
+				ms.Replay(caller)
 			})
-			bm.AddHandler("⏹️", func(bm *ButtonizedMessage) {
+			bm.AddHandler("⏹️", func(bm *ButtonizedMessage, caller *discordgo.Member) {
 				ms.Stop()
 			})
-			bm.AddHandler("⏯️", func(bm *ButtonizedMessage) {
+			bm.AddHandler("⏯️", func(bm *ButtonizedMessage, caller *discordgo.Member) {
 				ms.Pause()
 			})
-			bm.AddHandler("➡", func(bm *ButtonizedMessage) {
+			bm.AddHandler("➡", func(bm *ButtonizedMessage, caller *discordgo.Member) {
 				ms.Skip()
 			})
-			bm.AddHandler("🔄", func(bm *ButtonizedMessage) {
-				//ms.Loop()
+			bm.AddHandler("🔄", func(bm *ButtonizedMessage, caller *discordgo.Member) {
+				ms.Loop()
 			})
 		}()
 		go bm.Listen()

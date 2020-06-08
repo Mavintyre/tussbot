@@ -10,6 +10,9 @@ import (
 
 func init() {
 	session := FFMPEGSession{}
+	done := make(chan error)
+
+	// TO DO: goroutine to wait for done and queue next
 
 	RegisterCommand(Command{
 		aliases: []string{"play", "p"},
@@ -43,10 +46,9 @@ func init() {
 						return
 					}
 
-					done := make(chan error)
 					ticker := time.NewTicker(time.Second)
 
-					go session.Start(url, 1, 0, vc, vch.Bitrate, done)
+					go session.Start(url, 0, 1, vc, vch.Bitrate, done)
 
 					for {
 						select {
@@ -54,7 +56,7 @@ func init() {
 							if err != nil && !errors.Is(err, io.EOF) {
 								SendError(ca, fmt.Sprintf("ffmpeg session error:", err))
 							}
-							session.Stop()
+							session.Cleanup()
 							vc.Disconnect()
 							return
 						case <-ticker.C:

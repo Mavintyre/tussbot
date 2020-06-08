@@ -53,12 +53,7 @@ func (s *FFMPEGSession) Start(url string, seek int, volume float64, vc *discordg
 	s.paused = false
 	s.framesSent = 0
 
-	// don't store streamURL here -- unneeded if restarting every time
-	// better to kill on pause in music.go instead of pause here? how does buffer react
-	// avoid defer unlock
-	// rename stop to cleanup
-	// s.done <- fmt.Errorf("stopped on request %w", io.EOF)
-	// on stop, not cleanup!
+	// TO DO: better to kill on pause in music.go instead of pause here? how does buffer react
 
 	args := []string{
 		"-ss", strconv.Itoa(seek),
@@ -89,7 +84,6 @@ func (s *FFMPEGSession) Start(url string, seek int, volume float64, vc *discordg
 		"-frame_duration", strconv.Itoa(frameDuration),
 		// pcm frame length = 960 * channels * ( framedur / 20 )
 		"-packet_loss", "10", // expected %
-		"-threads", "0",
 
 		"-ar", "48000",
 		"-ac", "2",
@@ -118,6 +112,7 @@ func (s *FFMPEGSession) Start(url string, seek int, volume float64, vc *discordg
 		return
 	}
 
+	// TO DO: change buffer length?
 	s.frameBuffer = make(chan []byte, frameDuration*5)
 	defer close(s.frameBuffer)
 
@@ -285,17 +280,35 @@ func (s *FFMPEGSession) SetPaused(p bool) {
 	}
 }
 
-// StopEncoder kill process and clean up remaining unstreamed frames
-func (s *FFMPEGSession) StopEncoder() {
+// Cleanup kill process and clean up remaining unstreamed frames
+func (s *FFMPEGSession) Cleanup() {
+	// stop streamer
+	if s.streaming {
+		s.SetPaused(true) // stop sending packets
+		// wait until stream has closed
+		for {
+			s.Lock()
+			if !s.streaming {
+				s.Unlock()
+				break
+			}
+			s.Unlock()
+		}
+	}
+
+	// kill process
 	s.Lock()
 	if s.ffmpeg != nil {
 		s.ffmpeg.Kill()
 	}
 	s.Unlock()
 
-	s.killDecoder <- 1
+	// kill decoder goroutine
+	if s.encoding {
+		s.killDecoder <- 1
+	}
 
-	// empty remaining frames
+	// empty remaining frames in buffer
 	for len(s.frameBuffer) > 0 {
 		<-s.frameBuffer
 	}
@@ -313,14 +326,6 @@ func (s *FFMPEGSession) StopEncoder() {
 
 // Stop everything and clean up
 func (s *FFMPEGSession) Stop() {
-	s.SetPaused(true)
-	for { // wait until stream has closed
-		s.Lock()
-		if !s.streaming {
-			s.Unlock()
-			break
-		}
-		s.Unlock()
-	}
-	s.StopEncoder()
+	s.Cleanup()
+	s.done <- fmt.Errorf("stopped on request %w", io.EOF)
 }

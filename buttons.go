@@ -52,6 +52,7 @@ func (bm *ButtonizedMessage) Handle(emoji string, handler ButtonHandler) {
 }
 
 func ButtonizeMessage(sess *discordgo.Session, msg *discordgo.Message) *ButtonizedMessage {
+	sess.MessageReactionsRemoveAll(msg.ChannelID, msg.ID)
 	bm := &ButtonizedMessage{}
 	bm.msg = msg
 	bm.sess = sess

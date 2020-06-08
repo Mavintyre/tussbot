@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"runtime"
 	"strings"
 
 	"github.com/bwmarrin/discordgo"
@@ -34,7 +35,7 @@ func RegisterCommand(cmd Command) {
 type CommandArgs struct {
 	sess  *discordgo.Session
 	msg   *discordgo.Message
-	ch    string
+	chO   string
 	cmd   *Command
 	alias string
 	args  string
@@ -44,7 +45,13 @@ type CommandArgs struct {
 func HandleCommand(s *discordgo.Session, m *discordgo.Message) {
 	defer func() {
 		if r := recover(); r != nil {
-			stack := PanicStack()
+			// get first 15 lines of stack
+			buf := make([]byte, 1024)
+			runtime.Stack(buf, false)
+			str := string(buf)
+			lines := strings.Split(str, "\n")
+			stack := strings.Join(lines[:15], "\n")
+
 			fmt.Println("<Recovered panic in HandleCommand>\n", stack)
 			ch, err := GetDMChannel(s, Config.OwnerID)
 			if err != nil {
@@ -52,7 +59,7 @@ func HandleCommand(s *discordgo.Session, m *discordgo.Message) {
 				return
 			}
 			stack = strings.Replace(stack, "	", ">", -1)
-			SendReply(CommandArgs{sess: s, ch: ch.ID}, fmt.Sprintf("`<Recovered panic in HandleCommand>`\n```%s```", StrClamp(stack, 1957)))
+			SendReply(CommandArgs{sess: s, chO: ch.ID}, fmt.Sprintf("`<Recovered panic in HandleCommand>`\n```%s```", StrClamp(stack, 1957)))
 		}
 	}()
 

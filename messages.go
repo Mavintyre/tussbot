@@ -37,8 +37,8 @@ func SendReply(ca CommandArgs, str string) (*discordgo.Message, error) {
 	str = StrClamp(str, 2000)
 
 	ch := ""
-	if ca.ch != "" {
-		ch = ca.ch
+	if ca.chO != "" {
+		ch = ca.chO
 	} else {
 		ch = ca.msg.ChannelID
 	}
@@ -81,8 +81,8 @@ func SendEmbed(ca CommandArgs, em *discordgo.MessageEmbed) (*discordgo.Message, 
 	em = limitEmbedLength(em)
 
 	ch := ""
-	if ca.ch != "" {
-		ch = ca.ch
+	if ca.chO != "" {
+		ch = ca.chO
 	} else {
 		ch = ca.msg.ChannelID
 	}
@@ -96,8 +96,8 @@ func SendEmbed(ca CommandArgs, em *discordgo.MessageEmbed) (*discordgo.Message, 
 }
 
 // EditMessage edits a message while adhereing to string lengths
-func EditMessage(ca CommandArgs, me *discordgo.MessageEdit) (*discordgo.Message, error) {
-	if *me.Content != "" {
+func EditMessage(ca CommandArgs, me *discordgo.MessageEdit) error {
+	if me.Content != nil {
 		content := *me.Content
 		content = StrClamp(content, 2000)
 		me.Content = &content
@@ -107,12 +107,12 @@ func EditMessage(ca CommandArgs, me *discordgo.MessageEdit) (*discordgo.Message,
 		me.Embed = limitEmbedLength(me.Embed)
 	}
 
-	nm, err := ca.sess.ChannelMessageEditComplex(me)
+	_, err := ca.sess.ChannelMessageEditComplex(me)
 	if err != nil {
 		err = fmt.Errorf("error editing message in %s: %w", GetChannelName(ca.sess, me.Channel), err)
 		SendError(ca, err.Error())
 	}
-	return nm, err
+	return err
 }
 
 // QEmbed provides a quick interface to create message embeds
@@ -142,8 +142,8 @@ func SendError(ca CommandArgs, str string) {
 
 	// not using SendEmbed here so we don't get stuck in a SendError loop
 	ch := ""
-	if ca.ch != "" {
-		ch = ca.ch
+	if ca.chO != "" {
+		ch = ca.chO
 	} else {
 		ch = ca.msg.ChannelID
 	}

@@ -31,17 +31,15 @@ type FFMPEGSession struct {
 	paused      bool
 	framesSent  int
 	voiceCh     *discordgo.VoiceConnection
-	ca          CommandArgs // of the command that queued this song
 }
 
 var frameDuration = 20 // 20, 40, or 60 ms
 
 // Start an ffmpeg session and begin streaming
 //	`done` channel signals io.EOF for natural end of stream as well as legitimate errors
-func (s *FFMPEGSession) Start(url string, seek int, volume float64, vc *discordgo.VoiceConnection, bitrate int, ca CommandArgs, done chan error) {
+func (s *FFMPEGSession) Start(url string, seek int, volume float64, vc *discordgo.VoiceConnection, bitrate int, done chan error) {
 	s.done = done
 	s.voiceCh = vc
-	s.ca = ca
 
 	s.Lock()
 	if s.encoding || s.streaming {

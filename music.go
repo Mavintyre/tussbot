@@ -169,21 +169,23 @@ func (ms *musicSession) initEmbed() {
 	if ms.embedBM == nil {
 		// TO DO: loop and replay
 		bm := ButtonizeMessage(ms.sess, msg)
-		go bm.AddHandler("↪", func(bm *ButtonizedMessage) {
-			//ms.Replay()
-		})
-		go bm.AddHandler("⏹️", func(bm *ButtonizedMessage) {
-			ms.Stop()
-		})
-		go bm.AddHandler("⏯️", func(bm *ButtonizedMessage) {
-			ms.Pause()
-		})
-		go bm.AddHandler("⏭️", func(bm *ButtonizedMessage) {
-			ms.Skip()
-		})
-		go bm.AddHandler("🔄", func(bm *ButtonizedMessage) {
-			//ms.Loop()
-		})
+		go func() {
+			bm.AddHandler("↪", func(bm *ButtonizedMessage) {
+				//ms.Replay()
+			})
+			bm.AddHandler("⏹️", func(bm *ButtonizedMessage) {
+				ms.Stop()
+			})
+			bm.AddHandler("⏯️", func(bm *ButtonizedMessage) {
+				ms.Pause()
+			})
+			bm.AddHandler("⏭️", func(bm *ButtonizedMessage) {
+				ms.Skip()
+			})
+			bm.AddHandler("🔄", func(bm *ButtonizedMessage) {
+				//ms.Loop()
+			})
+		}()
 		go bm.Listen()
 		ms.embedBM = bm
 	}

@@ -11,6 +11,7 @@ import (
 )
 
 var embedUpdateFreq = 45
+var timeoutSeconds = 10
 
 // SongInfo stores data for one song in the queue
 type SongInfo struct {
@@ -37,6 +38,7 @@ type musicSession struct {
 	embedBM   *ButtonizedMessage
 	looping   bool
 	lastSong  *SongInfo
+	startTO   time.Time
 }
 
 func (ms *musicSession) Play() {
@@ -112,6 +114,35 @@ func (ms *musicSession) Replay(caller *discordgo.Member) {
 	}
 }
 
+func (ms *musicSession) disconnectTimeout() {
+	// record time this timeout started
+	ms.Lock()
+	thisStart := time.Now()
+	ms.startTO = thisStart
+	ms.Unlock()
+
+	// sleep for timeout delay
+	time.Sleep(time.Duration(timeoutSeconds) * time.Second)
+
+	// get playing state and latest timeout started time
+	ms.Lock()
+	playing := ms.playing
+	startTO := ms.startTO
+	ms.Unlock()
+
+	// if latest timeout was started at a differnt time
+	// than this one, cancel this one as the other is newer
+	if startTO != thisStart {
+		return
+	}
+
+	// if not playing, stop and disconnect
+	if playing {
+		return
+	}
+	ms.Stop()
+}
+
 func (ms *musicSession) queueLoop() {
 	ticker := time.NewTicker(time.Second * time.Duration(embedUpdateFreq))
 	for {
@@ -147,7 +178,7 @@ func (ms *musicSession) queueLoop() {
 				ms.playing = false
 				ms.Unlock()
 				ms.updateEmbed()
-				// TO DO: disconnection timeout
+				go ms.disconnectTimeout()
 				return
 			}
 		case <-ticker.C:
@@ -232,7 +263,6 @@ func (ms *musicSession) initEmbed() {
 	}
 
 	if ms.embedBM == nil {
-		// TO DO: loop and replay
 		bm := ButtonizeMessage(ms.sess, msg)
 		go func() {
 			// TO DO: check if caller is in same voice channel before allowing anything

@@ -73,6 +73,7 @@ func ButtonizeMessage(sess *discordgo.Session, msg *discordgo.Message) *Buttoniz
 	bm := &ButtonizedMessage{}
 	bm.Msg = msg
 	bm.Sess = sess
+	bm.Close = make(chan bool, 10)
 	bm.handlers = make(map[string]ButtonHandler)
 	return bm
 }

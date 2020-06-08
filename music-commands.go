@@ -205,6 +205,7 @@ func init() {
 			ms.Unlock()
 
 			if playing {
+				ms.updateEmbed()
 				return true
 			}
 

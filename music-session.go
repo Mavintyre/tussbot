@@ -67,8 +67,6 @@ func (ms *musicSession) Skip() {
 }
 
 func (ms *musicSession) Stop() {
-	// TO DO: reset embed on stop/disconnect timeout and queue len == 0
-
 	ms.Lock()
 	defer ms.Unlock()
 
@@ -96,6 +94,7 @@ func (ms *musicSession) queueLoop() {
 			if ms.queue == nil || len(ms.queue) < 1 {
 				ms.playing = false
 				ms.Unlock()
+				ms.updateEmbed()
 				return
 			}
 
@@ -109,6 +108,7 @@ func (ms *musicSession) queueLoop() {
 				ms.Lock()
 				ms.playing = false
 				ms.Unlock()
+				ms.updateEmbed()
 				// TO DO: disconnection timeout
 				return
 			}
@@ -128,12 +128,19 @@ func fmtDuration(d time.Duration) string {
 
 func (ms *musicSession) makeEmbed() *discordgo.MessageEdit {
 	me := &discordgo.MessageEdit{}
-	//me.Content = queue
+
+	queue := ""
+	for i, v := range ms.queue {
+		length := fmtDuration(v.Duration)
+		queue += fmt.Sprintf("%02d.  **%s** [%s]  `%s`\n", i+1, v.Title, length, v.QueuedBy)
+	}
+	me.Content = &queue
+
 	em := &discordgo.MessageEmbed{}
 	if len(ms.queue) > 0 {
 		s := ms.queue[0]
 		length := fmtDuration(s.Duration)
-		em.Title = fmt.Sprintf("[%s] %s", length, s.Title)
+		em.Title = fmt.Sprintf("%s [%s]", s.Title, length)
 		em.URL = s.URL
 		em.Image = &discordgo.MessageEmbedImage{URL: s.Thumbnail}
 		em.Description = fmt.Sprintf("queued by `%s`", s.QueuedBy)
@@ -141,6 +148,7 @@ func (ms *musicSession) makeEmbed() *discordgo.MessageEdit {
 			fmtDuration(ms.ffmpeg.CurrentTime()), length, embedUpdateFreq)}
 	} else {
 		em.Title = "no song playing"
+		em.Description = "paste in a song link to begin"
 	}
 	me.Embed = em
 	return me

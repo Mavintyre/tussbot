@@ -10,7 +10,7 @@ import (
 	"github.com/bwmarrin/discordgo"
 )
 
-var embedUpdateFreq = 30
+var embedUpdateFreq = 45
 
 // SongInfo stores data for one song in the queue
 type SongInfo struct {

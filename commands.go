@@ -70,11 +70,13 @@ func HandleCommand(s *discordgo.Session, m *discordgo.Message) {
 	mname := split[0]
 
 	// prefixes are optional!
-	if Config.PrefixOptional {
-		for _, p := range Config.Prefixes {
-			if string(mname[0]) == p {
-				mname = mname[1:]
-				break
+	if len(mname) > 1 {
+		if Config.PrefixOptional {
+			for _, p := range Config.Prefixes {
+				if string(mname[0]) == p {
+					mname = mname[1:]
+					break
+				}
 			}
 		}
 	}

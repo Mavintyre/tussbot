@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"os"
 	"os/signal"
+	"runtime"
 	"syscall"
 
 	"github.com/bwmarrin/discordgo"
@@ -16,6 +17,7 @@ type configJSON struct {
 	OwnerID        string
 	Prefixes       []string
 	PrefixOptional bool
+	AdminRole      string
 }
 
 // Config JSON
@@ -60,9 +62,29 @@ func main() {
 	discord.Close()
 }
 
+// AdminRoleCache of admin role ID for a guild
+var AdminRoleCache map[string]string
+
+// CacheAdminRoles [re]generates cache of guild admin role IDs
+// TO DO: (owner) command to regen cache? regen on role edit event? guild create?
+func CacheAdminRoles(s *discordgo.Session) {
+	for _, g := range s.State.Guilds {
+		role, err := GetRole(s, g.ID, Config.AdminRole)
+		if err != nil {
+			fmt.Println("couldn't find admin role in ", g.Name)
+			continue
+		}
+		AdminRoleCache[g.ID] = role.ID
+	}
+}
+
 func ready(s *discordgo.Session, event *discordgo.Ready) {
 	// TO DO: read from config, save and change on command
 	s.UpdateStatus(0, "doin bot stuff")
+
+	// cache admin role IDs
+	AdminRoleCache = make(map[string]string)
+	CacheAdminRoles(s)
 }
 
 func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
@@ -72,4 +94,23 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 
 	// "go" is unnecessary here as lib already calls "go messageCreate..."
 	HandleCommand(s, m.Message)
+}
+
+func init() {
+	RegisterCommand(Command{
+		aliases:   []string{"stats"},
+		help:      "bot runtime stats",
+		emptyArg:  true,
+		ownerOnly: true,
+		callback: func(ca CommandArgs) bool {
+			var m runtime.MemStats
+			runtime.ReadMemStats(&m)
+			mbAlloc := float64(m.Alloc) / 1024 / 1024
+			mbStack := float64(m.StackSys) / 1024 / 1024
+			pauseTime := float64(m.PauseNs[(m.NumGC+255)%256] / 1000000)
+			numRoutines := runtime.NumGoroutine()
+			stats := fmt.Sprintf("`alloc: %.2fMB`\n`stack: %.2fMB`\n`pause: %.2fms`\n`numgo: %d`", mbAlloc, mbStack, pauseTime, numRoutines)
+			QuickEmbed(ca, QEmbed{title: "runtime stats", content: stats})
+			return false
+		}})
 }

@@ -115,7 +115,6 @@ func setGuildMusicChannel(gid string, cid string) {
 func isMusicChannel(ca CommandArgs) bool {
 	chid, ok := settingsCache.MusicChannels[ca.msg.GuildID]
 	if !ok {
-		SendError(ca, "guild has no music channel!\nget an admin to set one with %Pmusicchannel")
 		return false
 	}
 	if ca.msg.ChannelID != chid {

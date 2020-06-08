@@ -26,6 +26,7 @@ type Command struct {
 	emptyArg  bool
 	hidden    bool
 	adminOnly bool
+	ownerOnly bool
 }
 
 // RegisterCommand to the bot
@@ -86,9 +87,16 @@ func HandleCommand(s *discordgo.Session, m *discordgo.Message) {
 		margs = split[1]
 	}
 
+	hasAdmin := HasAdmin(m.GuildID, m.Member)
+
 	// run regex first in case it needs to consume
 	for _, cmd := range CommandList {
-		// TO DO: adminOnly filter
+		if cmd.ownerOnly && m.Author.ID != Config.OwnerID {
+			continue
+		}
+		if cmd.adminOnly && !hasAdmin {
+			continue
+		}
 		for _, r := range cmd.regexes {
 			if regexp.MustCompile(r).MatchString(m.Content) {
 				// no args and no alias
@@ -101,8 +109,13 @@ func HandleCommand(s *discordgo.Session, m *discordgo.Message) {
 	}
 
 	for _, cmd := range CommandList {
+		if cmd.ownerOnly && m.Author.ID != Config.OwnerID {
+			continue
+		}
+		if cmd.adminOnly && !hasAdmin {
+			continue
+		}
 		for _, a := range cmd.aliases {
-			// TO DO: adminOnly filter
 			if a == mname {
 				if margs == "" && !cmd.emptyArg {
 					ShowHelp(CommandArgs{sess: s, msg: m}, cmd)
@@ -143,6 +156,21 @@ func ShowHelp(ca CommandArgs, cmd Command) {
 	})
 }
 
+// HasAdmin returns true if member has the guild's admin role
+func HasAdmin(gid string, mem *discordgo.Member) bool {
+	if mem == nil {
+		return false
+	}
+
+	grid := AdminRoleCache[gid]
+	for _, mr := range mem.Roles {
+		if mr == grid {
+			return true
+		}
+	}
+	return false
+}
+
 func init() {
 	RegisterCommand(Command{
 		aliases:  []string{"help"},
@@ -150,11 +178,18 @@ func init() {
 		emptyArg: true,
 		help:     ":egg:",
 		callback: func(ca CommandArgs) bool {
+			hasAdmin := HasAdmin(ca.msg.GuildID, ca.msg.Member)
+
 			// show help for a command
 			if ca.args != "" {
 				for _, cmd := range CommandList {
+					if cmd.ownerOnly && ca.msg.Author.ID != Config.OwnerID {
+						continue
+					}
+					if cmd.adminOnly && !hasAdmin {
+						continue
+					}
 					for _, a := range cmd.aliases {
-						// TO DO: adminOnly filter
 						if a == ca.args {
 							ShowHelp(ca, cmd)
 							return false
@@ -167,7 +202,12 @@ func init() {
 
 			var list []string
 			for _, cmd := range CommandList {
-				// TO DO: adminOnly filter
+				if cmd.ownerOnly && ca.msg.Author.ID != Config.OwnerID {
+					continue
+				}
+				if cmd.adminOnly && !hasAdmin {
+					continue
+				}
 				if cmd.hidden {
 					continue
 				}

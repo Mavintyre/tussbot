@@ -12,9 +12,10 @@ import (
 )
 
 type configJSON struct {
-	Token   string
-	OwnerID string
-	Prefix  string
+	Token          string
+	OwnerID        string
+	Prefixes       []string
+	PrefixOptional bool
 }
 
 // Config JSON

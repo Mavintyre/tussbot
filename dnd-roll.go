@@ -103,7 +103,7 @@ func init() {
 		^$roll 2d6 3d20^ - roll multiple sets of dice
 		^!roll 2d6 risky standard^ - tag a roll's output
 		^!roll 1dS^ - roll custom dice of name S`,
-		callback: func(ca CommandArgs) {
+		callback: func(ca CommandArgs) bool {
 			// TO DO: custom die
 			//  	- store in guild storage "roll/dice" scope
 			//		- roll as name !roll 2dZ or 2dZoop
@@ -131,14 +131,14 @@ func init() {
 			regex := regexp.MustCompile(`^((?:\d*d\d+(?:[+-]\d+)?(?:[!#]+)?\s?)+)\s?([\w ]+)?$`)
 			if !regex.MatchString(ca.args) {
 				SendError(ca, "invalid roll parameters\ncheck `%Phelp roll` for usage")
-				return
+				return false
 			}
 
 			// separate roll syntax from tags
 			groups := regex.FindAllStringSubmatch(ca.args, -1)
 			if len(groups) == 0 || len(groups[0]) < 3 {
 				SendError(ca, "error matching regex")
-				return
+				return false
 			}
 			rollstr := groups[0][1]
 			tags := groups[0][2]
@@ -160,14 +160,14 @@ func init() {
 					modmatch := modreg.FindAllString(str, -1)
 					if len(modmatch) < 1 {
 						SendError(ca, "error capturing modifier syntax")
-						return
+						return false
 					}
 					modstr := modmatch[0]
 					str = strings.Replace(str, modstr, "", -1)
 					mod, err := strconv.Atoi(modstr)
 					if err != nil {
 						SendError(ca, "couldn't parse modifier"+err.Error())
-						return
+						return false
 					}
 					modifier = mod
 				}
@@ -176,7 +176,7 @@ func init() {
 				split := strings.Split(str, "d")
 				if len(split) < 2 {
 					SendError(ca, "error parsing roll string")
-					return
+					return false
 				}
 
 				// handle if tail end has exploding or sum syntax tokens
@@ -206,12 +206,12 @@ func init() {
 					//			err.Error
 					//			"",err
 					SendError(ca, "couldn't parse number of dice: "+err.Error())
-					return
+					return false
 				}
 				diceVal, err := strconv.Atoi(split[1])
 				if err != nil {
 					SendError(ca, "couldn't parse dice value: "+err.Error())
-					return
+					return false
 				}
 
 				// roll die
@@ -223,7 +223,7 @@ func init() {
 					rollVals, err := rollDice(numDice, diceVal)
 					if err != nil {
 						SendError(ca, err.Error())
-						return
+						return false
 					}
 					vals = append(vals, rollVals...)
 				}
@@ -284,6 +284,8 @@ func init() {
 				retstr = strings.Join(results, "  **--**  ")
 			}
 			QuickEmbed(ca, QEmbed{content: retstr, footer: tags})
+
+			return false
 		},
 	})
 
@@ -293,10 +295,10 @@ func init() {
 		^%Pseed^ - display current seed
 		^%Pseed asdf^ - change seed to "asdf"`,
 		emptyArg: true,
-		callback: func(ca CommandArgs) {
+		callback: func(ca CommandArgs) bool {
 			if ca.args == "" && ca.alias == "seed" {
 				QuickEmbed(ca, QEmbed{content: fmt.Sprintf("current seed: %v", seedstr)})
-				return
+				return false
 			}
 			seed = time.Now().UnixNano()
 			footer := ""
@@ -313,9 +315,10 @@ func init() {
 			content := fmt.Sprintf("new seed: %v", seedstr)
 			if footer != "" {
 				QuickEmbed(ca, QEmbed{title: "roll reseeded", content: content, footer: footer})
-				return
+				return false
 			}
 			QuickEmbed(ca, QEmbed{title: "roll reseeded", content: content})
+			return false
 		},
 	})
 }

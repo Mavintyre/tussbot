@@ -5,10 +5,18 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"regexp"
 	"sync"
 
 	"github.com/bwmarrin/discordgo"
 )
+
+var errorTimeout = 5
+
+var allowedLinks = []string{`youtube\.com\/watch\?v=.+`,
+	`youtu\.be\/.+`,
+	`soundcloud\.com\/.+\/.+`,
+	`.+\.bandcamp\.com\/track\/.+`}
 
 func getVoiceChannel(ca CommandArgs) (*discordgo.Channel, *discordgo.VoiceState, error) {
 	tc, err := ca.sess.State.Channel(ca.msg.ChannelID)
@@ -117,8 +125,6 @@ func isMusicChannel(ca CommandArgs) bool {
 }
 
 func init() {
-	// TO DO: wrapper for SendError that deletes after x seconds
-
 	// initialize session list
 	listMutex = sync.Mutex{}
 	sessionList = make(map[string]*musicSession)
@@ -145,12 +151,26 @@ func init() {
 	// register commands
 	RegisterCommand(Command{
 		aliases: []string{"play", "p"},
+		regexes: []string{`[\s\S]+`},
 		help:    "play a song from url",
-		callback: func(ca CommandArgs) {
+		callback: func(ca CommandArgs) bool {
 			if !isMusicChannel(ca) {
-				return
+				return false
 			}
 			ca.sess.ChannelMessageDelete(ca.msg.ChannelID, ca.msg.ID)
+
+			found := false
+			for _, r := range allowedLinks {
+				if regexp.MustCompile(r).MatchString(ca.content) {
+					found = true
+					break
+				}
+			}
+
+			if !found {
+				SendErrorTemp(ca, "not an allowed link", errorTimeout)
+				return true
+			}
 
 			ms := getGuildSession(ca)
 
@@ -161,8 +181,8 @@ func init() {
 			// check if user is in same channel
 			vch, vs, err := getVoiceChannel(ca)
 			if err != nil {
-				SendError(ca, fmt.Sprintf("%s", err))
-				return
+				SendErrorTemp(ca, fmt.Sprintf("%s", err), errorTimeout)
+				return true
 			}
 
 			ms.Lock()
@@ -171,8 +191,8 @@ func init() {
 			ms.Unlock()
 
 			if playing && currentChan != nil && vch.ID != currentChan.ID {
-				SendError(ca, "already playing in a different channel")
-				return
+				SendErrorTemp(ca, "already playing in a different channel", errorTimeout)
+				return true
 			}
 
 			// queue song
@@ -187,14 +207,14 @@ func init() {
 			ms.Unlock()
 
 			if playing {
-				return
+				return true
 			}
 
 			// join channel if not already playing
 			vc, err := joinVoiceChannel(ca, vs)
 			if err != nil {
-				SendError(ca, fmt.Sprintf("%s", err))
-				return
+				SendErrorTemp(ca, fmt.Sprintf("%s", err), errorTimeout)
+				return true
 			}
 
 			// start ffmpeg session
@@ -205,6 +225,8 @@ func init() {
 
 			ms.Play()
 			go ms.queueLoop()
+
+			return true
 		},
 	})
 
@@ -216,7 +238,7 @@ func init() {
 		use %Pmusicchannel again to recreate the embed`,
 		emptyArg:  true,
 		adminOnly: true,
-		callback: func(ca CommandArgs) {
+		callback: func(ca CommandArgs) bool {
 			// keep note of old embed
 			oldem, ok := settingsCache.MusicEmbeds[ca.msg.GuildID]
 
@@ -233,5 +255,7 @@ func init() {
 
 			// delete message afterwards
 			ca.sess.ChannelMessageDelete(ca.msg.ChannelID, ca.msg.ID)
+
+			return false
 		}})
 }

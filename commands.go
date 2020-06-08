@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"regexp"
 	"runtime"
 	"strings"
 
@@ -15,11 +16,12 @@ var CommandList []Command
 //	- set emptyArg to true if command accepts an empty argument
 //		or else help will show when user calls with no arguments
 //	- first line of help string is used as a short description
-//	- %P is replaced with current bot prefix
+//	- %P is replaced with first bot prefix
 //	- ^ is replaced with ` so literals can be used for newlines
 type Command struct {
 	aliases   []string
-	callback  func(CommandArgs)
+	regexes   []string
+	callback  func(CommandArgs) bool
 	help      string
 	emptyArg  bool
 	hidden    bool
@@ -33,12 +35,13 @@ func RegisterCommand(cmd Command) {
 
 // CommandArgs to be passed around easily
 type CommandArgs struct {
-	sess  *discordgo.Session
-	msg   *discordgo.Message
-	chO   string
-	cmd   *Command
-	alias string
-	args  string
+	sess    *discordgo.Session
+	msg     *discordgo.Message
+	chO     string
+	cmd     *Command
+	alias   string
+	args    string
+	content string
 }
 
 // HandleCommand on message event
@@ -63,18 +66,36 @@ func HandleCommand(s *discordgo.Session, m *discordgo.Message) {
 		}
 	}()
 
-	// TO DO: allow commands without prefix
-	//	- how to achieve pasting urls with this? regex aliases?
-	//	- DEFINITELY restrict bot to one channel when doing this
-	if !strings.HasPrefix(m.Content, Config.Prefix) {
-		return
-	}
-	split := strings.SplitN(m.Content[1:], " ", 2)
+	split := strings.SplitN(m.Content, " ", 2)
 	mname := split[0]
+
+	// prefixes are optional!
+	if Config.PrefixOptional {
+		for _, p := range Config.Prefixes {
+			if string(mname[0]) == p {
+				mname = mname[1:]
+				break
+			}
+		}
+	}
 
 	margs := ""
 	if len(split) > 1 {
 		margs = split[1]
+	}
+
+	// run regex first in case it needs to consume
+	for _, cmd := range CommandList {
+		// TO DO: adminOnly filter
+		for _, r := range cmd.regexes {
+			if regexp.MustCompile(r).MatchString(m.Content) {
+				// no args and no alias
+				shouldReturn := cmd.callback(CommandArgs{sess: s, msg: m, content: m.Content, cmd: &cmd})
+				if shouldReturn {
+					return
+				}
+			}
+		}
 	}
 
 	for _, cmd := range CommandList {
@@ -85,7 +106,8 @@ func HandleCommand(s *discordgo.Session, m *discordgo.Message) {
 					ShowHelp(CommandArgs{sess: s, msg: m}, cmd)
 					return
 				}
-				cmd.callback(CommandArgs{sess: s, msg: m, args: margs, alias: mname, cmd: &cmd})
+				cmd.callback(CommandArgs{sess: s, msg: m, args: margs, content: m.Content, alias: mname, cmd: &cmd})
+				return
 			}
 		}
 	}
@@ -104,7 +126,7 @@ func ShowHelp(ca CommandArgs, cmd Command) {
 			if i == 0 {
 				continue
 			}
-			footer += fmt.Sprintf("%s%s", Config.Prefix, v)
+			footer += fmt.Sprintf("%s%s", Config.Prefixes[0], v)
 			if i != len(cmd.aliases)-1 {
 				footer += ", "
 			}
@@ -112,7 +134,7 @@ func ShowHelp(ca CommandArgs, cmd Command) {
 	}
 
 	QuickEmbed(ca, QEmbed{
-		title:   fmt.Sprintf("command help: %s%s", Config.Prefix, cmd.aliases[0]),
+		title:   fmt.Sprintf("command help: %s%s", Config.Prefixes[0], cmd.aliases[0]),
 		content: help,
 		footer:  footer,
 		colour:  helpColour,
@@ -125,7 +147,7 @@ func init() {
 		hidden:   true,
 		emptyArg: true,
 		help:     ":egg:",
-		callback: func(ca CommandArgs) {
+		callback: func(ca CommandArgs) bool {
 			// show help for a command
 			if ca.args != "" {
 				for _, cmd := range CommandList {
@@ -133,12 +155,12 @@ func init() {
 						// TO DO: adminOnly filter
 						if a == ca.args {
 							ShowHelp(ca, cmd)
-							return
+							return false
 						}
 					}
 				}
 				SendError(ca, "command not found")
-				return
+				return false
 			}
 
 			var list []string
@@ -149,14 +171,21 @@ func init() {
 				}
 				help := formatTokens(cmd.help)
 				firstline := strings.Split(help, "\n")[0]
-				list = append(list, fmt.Sprintf("%s%s - %s", Config.Prefix, cmd.aliases[0], firstline))
+				list = append(list, fmt.Sprintf("%s%s - %s", Config.Prefixes[0], cmd.aliases[0], firstline))
+			}
+
+			pfxText := ""
+			if Config.PrefixOptional {
+				pfxText = "command prefixes are optional!\n"
 			}
 
 			QuickEmbed(ca, QEmbed{
 				title:   "bot commands",
 				content: fmt.Sprintf("```%s```", strings.Join(list, "\n")),
-				footer:  fmt.Sprintf("\"%shelp command\" for help with individual commands", Config.Prefix),
+				footer:  fmt.Sprintf("\"%shelp command\" for help with individual commands\n%sprefixes: %s", Config.Prefixes[0], pfxText, strings.Join(Config.Prefixes, " ")),
 				colour:  helpColour,
 			})
+
+			return false
 		}})
 }

@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/bwmarrin/discordgo"
 )
@@ -25,7 +26,7 @@ func GetDMChannel(s *discordgo.Session, id string) (*discordgo.Channel, error) {
 //	^ = ` (so raw literals can be used for newlines)
 //	fixes newline characters in string
 func formatTokens(str string) string {
-	str = strings.Replace(str, "%P", Config.Prefix, -1)
+	str = strings.Replace(str, "%P", Config.Prefixes[0], -1)
 	str = strings.Replace(str, "^", "`", -1)
 	str = strings.Replace(str, "\\n", "\n", -1)
 	return str
@@ -137,7 +138,7 @@ func QuickEmbed(ca CommandArgs, qem QEmbed) (*discordgo.Message, error) {
 }
 
 // SendError to a message's source channel in a premade error embed
-func SendError(ca CommandArgs, str string) {
+func SendError(ca CommandArgs, str string) *discordgo.Message {
 	str = formatTokens(str)
 
 	// not using SendEmbed here so we don't get stuck in a SendError loop
@@ -147,9 +148,24 @@ func SendError(ca CommandArgs, str string) {
 	} else {
 		ch = ca.msg.ChannelID
 	}
-	_, err := ca.sess.ChannelMessageSendEmbed(ch, &discordgo.MessageEmbed{Title: "error", Description: StrClamp(str, 2000), Color: 0xff0000})
+
+	// TO DO: add ca.author icon and command as footer
+	msg, err := ca.sess.ChannelMessageSendEmbed(ch, &discordgo.MessageEmbed{Title: "error", Description: StrClamp(str, 2000), Color: 0xff0000})
 	if err != nil {
 		err = fmt.Errorf("error sending error in %s: %w", GetChannelName(ca.sess, ch), err)
 		fmt.Println(err)
+		return nil
+	}
+	return msg
+}
+
+// SendErrorTemp sends an error and then deletes it after some timeout
+func SendErrorTemp(ca CommandArgs, str string, timeout int) {
+	msg := SendError(ca, str)
+	if msg != nil {
+		go func() {
+			time.Sleep(time.Duration(timeout) * time.Second)
+			ca.sess.ChannelMessageDelete(msg.ChannelID, msg.ID)
+		}()
 	}
 }

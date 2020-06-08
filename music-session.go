@@ -82,7 +82,7 @@ func (ms *musicSession) queueLoop() {
 		select {
 		case err := <-ms.done:
 			if err != nil && !errors.Is(err, io.EOF) {
-				SendError(CommandArgs{sess: ms.sess, chO: ms.musicChan}, fmt.Sprintf("ffmpeg session error: %s", err))
+				SendErrorTemp(CommandArgs{sess: ms.sess, chO: ms.musicChan}, fmt.Sprintf("ffmpeg session error: %s", err), errorTimeout)
 			}
 			ms.ffmpeg.Cleanup()
 
@@ -153,7 +153,7 @@ func (ms *musicSession) initEmbed() {
 		me := ms.makeEmbed()
 		newmsg, err := SendEmbed(CommandArgs{sess: ms.sess, chO: ms.musicChan}, me.Embed)
 		if err != nil {
-			SendError(CommandArgs{sess: ms.sess, chO: ms.musicChan}, fmt.Sprintf("couldn't create embed: %s", err))
+			SendErrorTemp(CommandArgs{sess: ms.sess, chO: ms.musicChan}, fmt.Sprintf("couldn't create embed: %s", err), errorTimeout)
 			return
 		}
 		msg = newmsg

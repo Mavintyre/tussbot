@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"strconv"
 	"sync"
 	"time"
 
@@ -27,6 +26,7 @@ type musicSession struct {
 	vc      *discordgo.VoiceConnection
 	vch     *discordgo.Channel
 	ca      CommandArgs
+	embed   string
 }
 
 func (ms *musicSession) play() {
@@ -75,6 +75,22 @@ func (ms *musicSession) queueLoop() {
 	}
 }
 
+func (ms *musicSession) updateEmbed() {
+	// TO DO: split in 2 funcs:
+	//	- createEmbed - returns Embed{}
+	//	- updateEmbed - updates current embed msg
+
+	msg, err := ms.ca.sess.ChannelMessage(ms.ca.ch, ms.embed)
+	if err != nil {
+		SendError(ms.ca, fmt.Sprintf("error getting embed message: %s", err))
+		return
+	}
+
+	me := &discordgo.MessageEdit{Channel: ms.ca.ch, ID: msg.ID}
+	me.Embed = &discordgo.MessageEmbed{}
+	ms.ca.sess.ChannelMessageEditComplex(me)
+}
+
 func getVoiceChannel(ca CommandArgs) (*discordgo.Channel, *discordgo.VoiceState, error) {
 	tc, err := ca.sess.State.Channel(ca.msg.ChannelID)
 	if err != nil {
@@ -119,6 +135,8 @@ func init() {
 		aliases: []string{"play", "p"},
 		help:    "play a song from url",
 		callback: func(ca CommandArgs) {
+			// TO DO: channel filter
+
 			// parse url
 			// get streamurl
 			url := "soul.mp3"
@@ -180,15 +198,14 @@ func init() {
 	})
 
 	RegisterCommand(Command{
-		aliases: []string{"pause"},
+		aliases:  []string{"pause"},
+		help:     "pauses or resumes music",
+		emptyArg: true,
 		callback: func(ca CommandArgs) {
-			newVol, err := strconv.ParseBool(ca.args)
-			if err != nil {
-				SendError(ca, "error parsing volume: "+err.Error())
-				return
-			}
+			// TO DO: channel filter
+			// TO DO: replace setPaused?
 
-			ms.ffmpeg.SetPaused(newVol)
+			ms.ffmpeg.SetPaused(!ms.ffmpeg.Paused())
 		}})
 
 	RegisterCommand(Command{
@@ -196,6 +213,8 @@ func init() {
 		help:     "skips the current song in the queue",
 		emptyArg: true,
 		callback: func(ca CommandArgs) {
+			// TO DO: channel filter
+
 			ms.Lock()
 			defer ms.Unlock()
 
@@ -209,6 +228,8 @@ func init() {
 		help:     "stops playing and leaves the channel",
 		emptyArg: true,
 		callback: func(ca CommandArgs) {
+			// TO DO: channel filter
+
 			ms.Lock()
 			defer ms.Unlock()
 
@@ -219,4 +240,22 @@ func init() {
 				ms.vc.Disconnect()
 			}
 		}})
+
+	RegisterCommand(Command{
+		aliases: []string{"musicchannel"},
+		help: `marks this channel as the music channel\n
+		bot will only listen to this channel for requests
+		all music-related output will be in this channel
+		use %Pmusicchannel again to recreate the embed`,
+		emptyArg:  true,
+		adminOnly: true,
+		callback: func(ca CommandArgs) {
+			ms.Lock()
+			defer ms.Unlock()
+
+			// TO DO: save musicchannel to guild storage
+			// TO DO: create initial (empty) embed
+		}})
+
+	// TO DO: load musicchannel on init
 }

@@ -17,11 +17,12 @@ var CommandList []Command
 //	- %P is replaced with current bot prefix
 //	- ^ is replaced with ` so literals can be used for newlines
 type Command struct {
-	aliases  []string
-	callback func(CommandArgs)
-	help     string
-	emptyArg bool
-	hidden   bool
+	aliases   []string
+	callback  func(CommandArgs)
+	help      string
+	emptyArg  bool
+	hidden    bool
+	adminOnly bool
 }
 
 // RegisterCommand to the bot
@@ -71,6 +72,7 @@ func HandleCommand(s *discordgo.Session, m *discordgo.Message) {
 
 	for _, cmd := range CommandList {
 		for _, a := range cmd.aliases {
+			// TO DO: adminOnly filter
 			if a == mname {
 				if margs == "" && !cmd.emptyArg {
 					ShowHelp(CommandArgs{sess: s, msg: m}, cmd)
@@ -121,6 +123,7 @@ func init() {
 			if ca.args != "" {
 				for _, cmd := range CommandList {
 					for _, a := range cmd.aliases {
+						// TO DO: adminOnly filter
 						if a == ca.args {
 							ShowHelp(ca, cmd)
 							return
@@ -133,6 +136,7 @@ func init() {
 
 			var list []string
 			for _, cmd := range CommandList {
+				// TO DO: adminOnly filter
 				if cmd.hidden {
 					continue
 				}

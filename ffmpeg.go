@@ -267,7 +267,7 @@ func (s *FFMPEGSession) CurrentTime() time.Duration {
 	return time.Duration(s.framesSent*frameDuration) * time.Millisecond
 }
 
-// SetPaused state and stop or restart stream
+// SetPaused pauses or resumes streaming
 func (s *FFMPEGSession) SetPaused(p bool) {
 	s.Lock()
 	defer s.Unlock()
@@ -277,6 +277,14 @@ func (s *FFMPEGSession) SetPaused(p bool) {
 	if p == false {
 		go s.StartStream()
 	}
+}
+
+// Paused returns whether the stream is currently paused
+func (s *FFMPEGSession) Paused() bool {
+	s.Lock()
+	defer s.Unlock()
+
+	return s.paused
 }
 
 // Cleanup kill process and clean up remaining unstreamed frames

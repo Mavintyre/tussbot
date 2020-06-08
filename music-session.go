@@ -11,16 +11,18 @@ import (
 	"github.com/bwmarrin/discordgo"
 )
 
-type queueSong struct {
-	url      string
-	title    string
-	queuedby string
-	length   string
+type songInfo struct {
+	URL       string
+	Title     string
+	Thumbnail string
+	StreamURL string
+	Duration  time.Duration
+	QueuedBy  string
 }
 
 type musicSession struct {
 	sync.Mutex
-	queue     []queueSong
+	queue     []*songInfo
 	playing   bool
 	done      chan error
 	ffmpeg    *FFMPEGSession
@@ -39,7 +41,7 @@ func (ms *musicSession) Play() {
 
 	song := ms.queue[0]
 	ms.done = make(chan error, 10)
-	go ms.ffmpeg.Start(song.url, 0, 1, ms.voiceConn, ms.voiceChan.Bitrate, ms.done)
+	go ms.ffmpeg.Start(song.StreamURL, 0, 1, ms.voiceConn, ms.voiceChan.Bitrate, ms.done)
 	ms.playing = true
 	ms.updateEmbed()
 }

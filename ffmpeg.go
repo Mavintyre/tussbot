@@ -16,8 +16,8 @@ import (
 	"github.com/dougty/tussbot/ogg" // github.com/jonas747/ogg
 )
 
-var userAgent = "Mozilla/5.0 (X11; Linux x86_64; rv:77.0) Gecko/20100101 Firefox/77.0"
-var referer = "https://www.youtube.com/"
+var userAgent = `"Mozilla/5.0 (X11; Linux x86_64; rv:77.0) Gecko/20100101 Firefox/77.0"`
+var referer = `"https://www.youtube.com/"`
 
 // FFMPEGSession of encoder & streamer
 type FFMPEGSession struct {
@@ -100,14 +100,14 @@ func (s *FFMPEGSession) Start(url string, seek int, volume float64, vc *discordg
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
 		s.Unlock()
-		done <- fmt.Errorf("error starting stdout pipe: %w", err)
+		done <- fmt.Errorf("error starting ffmpeg stdout pipe: %w", err)
 		return
 	}
 
 	stderr, err := cmd.StderrPipe()
 	if err != nil {
 		s.Unlock()
-		done <- fmt.Errorf("error starting stderr pipe: %w", err)
+		done <- fmt.Errorf("error starting ffmpeg stderr pipe: %w", err)
 		return
 	}
 

@@ -174,10 +174,6 @@ func init() {
 
 			ms := getGuildSession(ca)
 
-			// TO DO: parse url
-			// get streamurl, length, title, erc...
-			url := "soul.mp3"
-
 			// check if user is in same channel
 			vch, vs, err := getVoiceChannel(ca)
 			if err != nil {
@@ -195,12 +191,14 @@ func init() {
 				return true
 			}
 
-			// queue song
-			s := queueSong{}
-			s.url = url
-			s.length = "1:23"
-			s.queuedby = "dogu"
-			s.title = "some song"
+			// parse url and queue song
+			s, err := ytdl(ca.content)
+			if err != nil {
+				SendErrorTemp(ca, fmt.Sprintf("error querying song: %s", err), errorTimeout)
+				return true
+			}
+
+			s.QueuedBy = ca.msg.Member.Nick
 
 			ms.Lock()
 			ms.queue = append(ms.queue, s)

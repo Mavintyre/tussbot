@@ -29,10 +29,8 @@ type FFMPEGSession struct {
 	done        chan error
 	killDecoder chan int
 	paused      bool
-	volume      float64
 	framesSent  int
 	voiceCh     *discordgo.VoiceConnection
-	streamURL   string
 }
 
 var frameDuration = 20 // 20, 40, or 60 ms
@@ -40,34 +38,30 @@ var frameDuration = 20 // 20, 40, or 60 ms
 // Start an ffmpeg session and begin streaming
 //	`done` channel signals io.EOF for natural end of stream as well as legitimate errors
 //	session.SetVolume(1) **MUST** be called before Start
-func (s *FFMPEGSession) Start(url string, vc *discordgo.VoiceConnection, done chan error) {
+func (s *FFMPEGSession) Start(url string, seek int, volume float64, vc *discordgo.VoiceConnection, bitrate int, done chan error) {
 	s.done = done
 	s.voiceCh = vc
-	s.streamURL = url
 
 	s.Lock()
-	if s.encoding {
-		done <- errors.New("invalid attempt to restart encoder")
+	if s.encoding || s.streaming {
+		done <- errors.New("invalid attempt to restart ffmpeg session")
 		s.Unlock()
 		return
 	}
 
 	s.encoding = true
 	s.paused = false
+	s.framesSent = 0
 
-	// TO DO: use s.framesSent to source -ss
-	// OR: don't reuse FFMPEGSession, destroy and remake in music.go
-	// 		for !volume, !seek, next song in queue, etc...
-	//		otherwise: how to handle next song in queue w/ framesSent sourcing?
-	//					how to reset framesSent?
-	// ss always takes seconds
-	// add new Start args for volume and seek, remove volume funcs
 	// don't store streamURL here -- unneeded if restarting every time
 	// better to kill on pause in music.go instead of pause here? how does buffer react
 	// avoid defer unlock
+	// rename stop to cleanup
+	// s.done <- fmt.Errorf("stopped on request %w", io.EOF)
+	// on stop, not cleanup!
 
 	args := []string{
-		// "-ss", seek,
+		"-ss", strconv.Itoa(seek),
 		"-i", url,
 
 		"-reconnect", "1",
@@ -100,8 +94,8 @@ func (s *FFMPEGSession) Start(url string, vc *discordgo.VoiceConnection, done ch
 		"-ar", "48000",
 		"-ac", "2",
 
-		"-b:a", "96000", // TO DO: get from channel
-		"-af", fmt.Sprintf("loudnorm,volume=%.2f", s.volume), // TO DO: allow for changing volume
+		"-b:a", strconv.Itoa(bitrate),
+		"-af", fmt.Sprintf("loudnorm,volume=%.2f", volume),
 
 		"-loglevel", "16",
 		"pipe:1",
@@ -205,6 +199,7 @@ func (s *FFMPEGSession) readStdout(stdout io.ReadCloser, wg *sync.WaitGroup) {
 				if err != io.EOF && err != io.ErrUnexpectedEOF {
 					s.done <- fmt.Errorf("ffmpeg stdout error: %w", err)
 				}
+				s.frameBuffer <- nil
 				break
 			}
 
@@ -288,28 +283,6 @@ func (s *FFMPEGSession) SetPaused(p bool) {
 	if p == false {
 		go s.StartStream()
 	}
-}
-
-// SetVolume and restart encoding
-func (s *FFMPEGSession) SetVolume(v float64) {
-	s.Lock()
-	s.volume = v
-	if !s.encoding {
-		s.Unlock()
-		return
-	}
-	s.Unlock()
-
-	s.Stop() // stop and wait until cleaned
-	go s.Start(s.streamURL, s.voiceCh, s.done)
-}
-
-// Volume returns current playback volume
-func (s *FFMPEGSession) Volume() float64 {
-	s.Lock()
-	defer s.Unlock()
-
-	return s.volume
 }
 
 // StopEncoder kill process and clean up remaining unstreamed frames

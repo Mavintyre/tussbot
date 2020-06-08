@@ -32,6 +32,11 @@ func init() {
 
 			for _, vs := range g.VoiceStates {
 				if vs.UserID == ca.msg.Author.ID {
+					vch, err := ca.sess.State.Channel(vs.ChannelID)
+					if err != nil {
+						return
+					}
+
 					// begin and save ref to ffmpeg session
 					vc, err := ca.sess.ChannelVoiceJoin(g.ID, vs.ChannelID, false, true)
 					if err != nil {
@@ -41,7 +46,7 @@ func init() {
 					done := make(chan error)
 					ticker := time.NewTicker(time.Second)
 
-					go session.Start(url, vc, done)
+					go session.Start(url, 1, 0, vc, vch.Bitrate, done)
 
 					for {
 						select {
@@ -59,25 +64,26 @@ func init() {
 					}
 				}
 			}
+
+			SendError(ca, "not in a voice channel")
 		},
 	})
 
 	RegisterCommand(Command{
-		aliases:  []string{"volume", "vol", "v"},
-		help:     "change or display playback volume",
-		emptyArg: true,
+		aliases: []string{"pause"},
 		callback: func(ca CommandArgs) {
-			if ca.args == "" {
-				SendReply(ca, fmt.Sprintf("current playback volume: %.2f", session.Volume()))
-				return
-			}
-
-			newVol, err := strconv.ParseFloat(ca.args, 64)
+			newVol, err := strconv.ParseBool(ca.args)
 			if err != nil {
 				SendError(ca, "error parsing volume: "+err.Error())
 				return
 			}
 
-			session.SetVolume(newVol)
+			session.SetPaused(newVol)
+		}})
+
+	RegisterCommand(Command{
+		aliases: []string{"stop"},
+		callback: func(ca CommandArgs) {
+			session.Stop()
 		}})
 }

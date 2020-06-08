@@ -194,7 +194,7 @@ func (ms *musicSession) initEmbed() {
 			bm.AddHandler("⏯️", func(bm *ButtonizedMessage) {
 				ms.Pause()
 			})
-			bm.AddHandler("⏭️", func(bm *ButtonizedMessage) {
+			bm.AddHandler("➡", func(bm *ButtonizedMessage) {
 				ms.Skip()
 			})
 			bm.AddHandler("🔄", func(bm *ButtonizedMessage) {

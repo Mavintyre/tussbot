@@ -21,6 +21,7 @@ type SongInfo struct {
 	StreamURL string
 	Duration  time.Duration
 	QueuedBy  string
+	Seek      int
 }
 
 type musicSession struct {
@@ -39,15 +40,24 @@ type musicSession struct {
 	looping   bool
 	lastSong  *SongInfo
 	startTO   time.Time
+	volume    float64
+	seekOv    int
 }
 
 func (ms *musicSession) Play() {
 	ms.Lock()
 	defer ms.Unlock()
 
-	song := ms.queue[0]
 	ms.done = make(chan error, 10)
-	go ms.ffmpeg.Start(song.StreamURL, 0, 1, ms.voiceConn, ms.voiceChan.Bitrate, ms.done)
+
+	song := ms.queue[0]
+	seek := song.Seek
+	if ms.seekOv != 0 {
+		seek = ms.seekOv
+		ms.seekOv = 0
+	}
+
+	go ms.ffmpeg.Start(song.StreamURL, seek, ms.volume, ms.voiceConn, ms.voiceChan.Bitrate, ms.done)
 	ms.playing = true
 	ms.updateEmbed()
 }

@@ -6,7 +6,10 @@ import (
 	"fmt"
 	"io/ioutil"
 	"regexp"
+	"strconv"
+	"strings"
 	"sync"
+	"time"
 
 	"github.com/bwmarrin/discordgo"
 )
@@ -159,7 +162,7 @@ func queueSong(ms *musicSession, sess *discordgo.Session, vs *discordgo.VoiceSta
 		return
 	}
 
-	// join channel if not already playing
+	// join channel
 	vc, err := joinVoiceChannel(sess, vs)
 	if err != nil {
 		SendErrorTemp(ca, fmt.Sprintf("%s", err), errorTimeout)
@@ -170,6 +173,7 @@ func queueSong(ms *musicSession, sess *discordgo.Session, vs *discordgo.VoiceSta
 	ms.Lock()
 	ms.voiceConn = vc
 	ms.voiceChan = vch
+	ms.volume = 1
 	ms.Unlock()
 
 	ms.Play()
@@ -204,11 +208,21 @@ func init() {
 	RegisterCommand(Command{
 		aliases: []string{"play", "p"},
 		regexes: []string{`[\s\S]+`},
-		help:    "play a song from url",
+		help: `play a song from url\n
+		command is optional: you can just paste in a URL\n
+		^%Pplay https://www.youtube.com/watch?v=asdf123^
+		^https://www.youtube.com/watch?v=asdf123^`,
 		callback: func(ca CommandArgs) bool {
 			if !isMusicChannel(ca) {
 				return false
 			}
+
+			// allowed commands in music channel
+			if strings.HasPrefix(ca.content, "volume") || strings.HasPrefix(ca.content, "vol") ||
+				strings.HasPrefix(ca.content, "seek") {
+				return false
+			}
+
 			ca.sess.ChannelMessageDelete(ca.msg.ChannelID, ca.msg.ID)
 
 			found := false
@@ -274,4 +288,83 @@ func init() {
 
 			return false
 		}})
+
+	RegisterCommand(Command{
+		aliases: []string{"volume", "vol"},
+		help: `change volume\n
+		^%Pvolume 0.5^`,
+		callback: func(ca CommandArgs) bool {
+			if !isMusicChannel(ca) {
+				return false
+			}
+			ca.sess.ChannelMessageDelete(ca.msg.ChannelID, ca.msg.ID)
+
+			vol, err := strconv.ParseFloat(ca.args, 64)
+			if err != nil {
+				SendError(ca, fmt.Sprintf("couldn't parse volume: %s", err))
+				return true
+			}
+
+			ms := getGuildSession(ca)
+
+			ms.Lock()
+			ms.volume = vol
+			oldLooping := ms.looping
+			ms.seekOv = int(ms.ffmpeg.CurrentTime().Seconds())
+			ms.looping = true
+			ms.Unlock()
+
+			ms.Skip()
+
+			// wait until playing has begun again, then disable looping
+			// TO DO: this is gross, find a better way of doing this
+			time.Sleep(time.Second * 1)
+			ms.Lock()
+			ms.looping = oldLooping
+			ms.Unlock()
+
+			return true
+		}})
+
+	RegisterCommand(Command{
+		aliases: []string{"seek"},
+		help: `seek some time into the current song\n
+			^%seek 30^`,
+		callback: func(ca CommandArgs) bool {
+			if !isMusicChannel(ca) {
+				return false
+			}
+			ca.sess.ChannelMessageDelete(ca.msg.ChannelID, ca.msg.ID)
+
+			// TO DO: parse seek string, same as in ytdl &t= parsing
+			seek, err := strconv.Atoi(ca.args)
+			if err != nil {
+				SendError(ca, fmt.Sprintf("couldn't parse seek: %s", err))
+				return true
+			}
+
+			ms := getGuildSession(ca)
+
+			ms.Lock()
+			ms.seekOv = seek
+			oldLooping := ms.looping
+			ms.looping = true
+			ms.Unlock()
+
+			ms.Skip()
+
+			// wait until playing has begun again, then disable looping
+			// TO DO: this is gross, find a better way of doing this
+			time.Sleep(time.Second * 1)
+			ms.Lock()
+			ms.looping = oldLooping
+			ms.Unlock()
+
+			return true
+		}})
+
+	// TO DO: volume clamp
+	// TO DO: volume in embed
+	// TO DO: update embed on loop change
+	// TO DO: update embed on volume/seek change (needed?)
 }

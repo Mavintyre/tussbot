@@ -9,7 +9,6 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/bwmarrin/discordgo"
 )
@@ -301,7 +300,7 @@ func init() {
 
 			vol, err := strconv.ParseFloat(ca.args, 64)
 			if err != nil {
-				SendError(ca, fmt.Sprintf("couldn't parse volume: %s", err))
+				SendErrorTemp(ca, fmt.Sprintf("couldn't parse volume: %s", err), errorTimeout)
 				return true
 			}
 
@@ -309,19 +308,9 @@ func init() {
 
 			ms.Lock()
 			ms.volume = vol
-			oldLooping := ms.looping
-			ms.seekOv = int(ms.ffmpeg.CurrentTime().Seconds())
-			ms.looping = true
 			ms.Unlock()
 
-			ms.Skip()
-
-			// wait until playing has begun again, then disable looping
-			// TO DO: this is gross, find a better way of doing this
-			time.Sleep(time.Second * 1)
-			ms.Lock()
-			ms.looping = oldLooping
-			ms.Unlock()
+			ms.Restart(-1)
 
 			return true
 		}})
@@ -339,26 +328,13 @@ func init() {
 			// TO DO: parse seek string, same as in ytdl &t= parsing
 			seek, err := strconv.Atoi(ca.args)
 			if err != nil {
-				SendError(ca, fmt.Sprintf("couldn't parse seek: %s", err))
+				SendErrorTemp(ca, fmt.Sprintf("couldn't parse seek: %s", err), errorTimeout)
 				return true
 			}
 
 			ms := getGuildSession(ca)
 
-			ms.Lock()
-			ms.seekOv = seek
-			oldLooping := ms.looping
-			ms.looping = true
-			ms.Unlock()
-
-			ms.Skip()
-
-			// wait until playing has begun again, then disable looping
-			// TO DO: this is gross, find a better way of doing this
-			time.Sleep(time.Second * 1)
-			ms.Lock()
-			ms.looping = oldLooping
-			ms.Unlock()
+			ms.Restart(seek)
 
 			return true
 		}})
@@ -366,5 +342,4 @@ func init() {
 	// TO DO: volume clamp
 	// TO DO: volume in embed
 	// TO DO: update embed on loop change
-	// TO DO: update embed on volume/seek change (needed?)
 }

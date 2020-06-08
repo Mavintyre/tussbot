@@ -11,7 +11,7 @@ import (
 )
 
 var embedUpdateFreq = 45
-var timeoutSeconds = 10
+var timeoutSeconds = 60
 
 // SongInfo stores data for one song in the queue
 type SongInfo struct {
@@ -41,7 +41,9 @@ type musicSession struct {
 	lastSong  *SongInfo
 	startTO   time.Time
 	volume    float64
+	seekStart int
 	seekOv    int
+	restart   bool
 }
 
 func (ms *musicSession) Play() {
@@ -56,6 +58,7 @@ func (ms *musicSession) Play() {
 		seek = ms.seekOv
 		ms.seekOv = 0
 	}
+	ms.seekStart = seek
 
 	go ms.ffmpeg.Start(song.StreamURL, seek, ms.volume, ms.voiceConn, ms.voiceChan.Bitrate, ms.done)
 	ms.playing = true
@@ -153,6 +156,25 @@ func (ms *musicSession) disconnectTimeout() {
 	ms.Stop()
 }
 
+// Restart the current song at a desired seek position
+// 	if seek == -1 then it will restart at its current time
+func (ms *musicSession) Restart(seek int) {
+	if !ms.playing {
+		return
+	}
+
+	ms.Lock()
+	if seek == -1 {
+		ms.seekOv = int(ms.CurrentSeek().Seconds())
+	} else {
+		ms.seekOv = seek
+	}
+	ms.restart = true
+	ms.Unlock()
+
+	ms.Skip()
+}
+
 func (ms *musicSession) queueLoop() {
 	ticker := time.NewTicker(time.Second * time.Duration(embedUpdateFreq))
 	for {
@@ -175,9 +197,10 @@ func (ms *musicSession) queueLoop() {
 				return
 			}
 
-			if !ms.looping {
+			if !ms.looping && !ms.restart {
 				ms.queue = append(ms.queue[:0], ms.queue[1:]...)
 			}
+			ms.restart = false
 			newlen := len(ms.queue)
 			ms.Unlock()
 
@@ -223,12 +246,14 @@ func (ms *musicSession) makeEmbed() *discordgo.MessageEdit {
 		em.URL = s.URL
 		em.Image = &discordgo.MessageEmbedImage{URL: s.Thumbnail}
 		em.Description = fmt.Sprintf("queued by `%s`", s.QueuedBy)
+
 		looping := ""
 		if ms.looping {
 			looping = "\n(looping)"
 		}
-		em.Footer = &discordgo.MessageEmbedFooter{Text: fmt.Sprintf("current time: %s / %s\nupdates every %ds%s",
-			fmtDuration(ms.ffmpeg.CurrentTime()), length, embedUpdateFreq, looping)}
+
+		em.Footer = &discordgo.MessageEmbedFooter{Text: fmt.Sprintf("current time: %s / %s\nupdates every %ds\nvolume: %.2f%s",
+			fmtDuration(ms.CurrentSeek()), length, embedUpdateFreq, ms.volume, looping)}
 	} else {
 		em.Title = "no song playing"
 		em.Description = "paste in a song link to begin"
@@ -295,4 +320,16 @@ func (ms *musicSession) initEmbed() {
 		go bm.Listen()
 		ms.embedBM = bm
 	}
+}
+
+// CurrentSeek returns the current seeking time of the playing song
+// combines encoder's returned time with session seek offset
+func (ms *musicSession) CurrentSeek() time.Duration {
+	if !ms.playing {
+		return 0
+	}
+
+	seek := ms.seekStart
+	encoderTime := int(ms.ffmpeg.CurrentTime().Seconds())
+	return time.Duration(encoderTime+seek) * time.Second
 }

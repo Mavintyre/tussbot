@@ -1,2 +1,3 @@
-config.json
+settings/*
+!settings/config.json.tmpl
 ogg/*

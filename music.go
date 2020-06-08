@@ -1,9 +1,11 @@
 package main
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"sync"
 	"time"
 
@@ -124,18 +126,84 @@ func joinVoiceChannel(ca CommandArgs, vs *discordgo.VoiceState) (*discordgo.Voic
 	return vc, nil
 }
 
-func init() {
-	ms := musicSession{}
-	ms.Lock()
-	ms.ffmpeg = &FFMPEGSession{}
-	ms.done = make(chan error)
-	ms.Unlock()
+var listMutex sync.Mutex
+var sessionList map[string]*musicSession
 
+func getGuildSession(ca CommandArgs) *musicSession {
+	listMutex.Lock()
+	defer listMutex.Unlock()
+
+	gid := ca.msg.GuildID
+	ms, ok := sessionList[gid]
+	if !ok {
+		sessionList[gid] = &musicSession{}
+		sessionList[gid].ffmpeg = &FFMPEGSession{}
+		sessionList[gid].done = make(chan error)
+		return sessionList[gid]
+	}
+	return ms
+}
+
+type musicSettings struct {
+	MusicChannels map[string]string
+}
+
+var settingsCache musicSettings
+
+func setGuildMusicChannel(gid string, cid string) {
+	settingsCache.MusicChannels[gid] = cid
+	b, err := json.Marshal(settingsCache)
+	if err != nil {
+		fmt.Println("Error marshaling JSON for music.json", err)
+		return
+	}
+	err = ioutil.WriteFile("./settings/music.json", b, 0644)
+	if err != nil {
+		fmt.Println("Error saving music.json", err)
+		return
+	}
+}
+
+func isMusicChannel(ca CommandArgs) bool {
+	chid, ok := settingsCache.MusicChannels[ca.msg.GuildID]
+	if !ok {
+		SendError(ca, "guild has no music channel!\nget an admin to set one with %Pmusicchannel")
+		return false
+	}
+	if ca.msg.ChannelID != chid {
+		return false
+	}
+	return true
+}
+
+func init() {
+	// TO DO: wrapper for SendError that deletes after x seconds
+
+	// initialize session list
+	listMutex = sync.Mutex{}
+	sessionList = make(map[string]*musicSession)
+
+	// load music settings
+	settingsjson, err := ioutil.ReadFile("./settings/music.json")
+	if err == nil {
+		err = json.Unmarshal(settingsjson, &settingsCache)
+		if err != nil {
+			fmt.Println("JSON error in music.json", err)
+		}
+	} else {
+		fmt.Println("Unable to read music.json, using empty")
+		settingsCache.MusicChannels = make(map[string]string)
+	}
+
+	// register commands
 	RegisterCommand(Command{
 		aliases: []string{"play", "p"},
 		help:    "play a song from url",
 		callback: func(ca CommandArgs) {
-			// TO DO: channel filter
+			if !isMusicChannel(ca) {
+				return
+			}
+			ms := getGuildSession(ca)
 
 			// parse url
 			// get streamurl
@@ -202,9 +270,12 @@ func init() {
 		help:     "pauses or resumes music",
 		emptyArg: true,
 		callback: func(ca CommandArgs) {
-			// TO DO: channel filter
-			// TO DO: replace setPaused?
+			if !isMusicChannel(ca) {
+				return
+			}
+			ms := getGuildSession(ca)
 
+			// TO DO: replace setPaused?
 			ms.ffmpeg.SetPaused(!ms.ffmpeg.Paused())
 		}})
 
@@ -213,7 +284,10 @@ func init() {
 		help:     "skips the current song in the queue",
 		emptyArg: true,
 		callback: func(ca CommandArgs) {
-			// TO DO: channel filter
+			if !isMusicChannel(ca) {
+				return
+			}
+			ms := getGuildSession(ca)
 
 			ms.Lock()
 			defer ms.Unlock()
@@ -228,7 +302,10 @@ func init() {
 		help:     "stops playing and leaves the channel",
 		emptyArg: true,
 		callback: func(ca CommandArgs) {
-			// TO DO: channel filter
+			if !isMusicChannel(ca) {
+				return
+			}
+			ms := getGuildSession(ca)
 
 			ms.Lock()
 			defer ms.Unlock()
@@ -250,12 +327,7 @@ func init() {
 		emptyArg:  true,
 		adminOnly: true,
 		callback: func(ca CommandArgs) {
-			ms.Lock()
-			defer ms.Unlock()
-
-			// TO DO: save musicchannel to guild storage
+			setGuildMusicChannel(ca.msg.GuildID, ca.msg.ChannelID)
 			// TO DO: create initial (empty) embed
 		}})
-
-	// TO DO: load musicchannel on init
 }

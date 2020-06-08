@@ -23,7 +23,7 @@ var Config configJSON
 func main() {
 	fmt.Println("Initializing...")
 
-	confjson, err := ioutil.ReadFile("config.json")
+	confjson, err := ioutil.ReadFile("./settings/config.json")
 	if err != nil {
 		fmt.Println("Unable to read config.json")
 		return
@@ -31,7 +31,7 @@ func main() {
 
 	err = json.Unmarshal(confjson, &Config)
 	if err != nil {
-		fmt.Println("JSON error", err)
+		fmt.Println("JSON error in config.json", err)
 		return
 	}
 

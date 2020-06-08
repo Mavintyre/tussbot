@@ -35,7 +35,7 @@ type musicSession struct {
 	embedBM   *ButtonizedMessage
 }
 
-func (ms *musicSession) play() {
+func (ms *musicSession) Play() {
 	ms.Lock()
 	defer ms.Unlock()
 
@@ -43,15 +43,36 @@ func (ms *musicSession) play() {
 	ms.done = make(chan error, 10)
 	go ms.ffmpeg.Start(song.url, 0, 1, ms.voiceConn, ms.voiceChan.Bitrate, ms.done)
 	ms.playing = true
+	ms.updateEmbed()
 }
 
-func (ms *musicSession) stop() {
+func (ms *musicSession) Pause() {
 	ms.Lock()
 	defer ms.Unlock()
 
-	ms.queue = nil
-	ms.ffmpeg.Stop()
-	ms.voiceConn.Disconnect()
+	if ms.playing {
+		ms.ffmpeg.SetPaused(!ms.ffmpeg.Paused())
+	}
+}
+
+func (ms *musicSession) Skip() {
+	ms.Lock()
+	defer ms.Unlock()
+
+	if ms.playing {
+		ms.ffmpeg.Stop()
+	}
+}
+
+func (ms *musicSession) Stop() {
+	ms.Lock()
+	defer ms.Unlock()
+
+	if ms.playing {
+		ms.queue = nil
+		ms.ffmpeg.Stop()
+		ms.voiceConn.Disconnect()
+	}
 }
 
 func (ms *musicSession) queueLoop() {
@@ -76,7 +97,7 @@ func (ms *musicSession) queueLoop() {
 			ms.Unlock()
 
 			if newlen > 0 {
-				ms.play()
+				ms.Play()
 			} else {
 				ms.Lock()
 				ms.playing = false
@@ -85,13 +106,14 @@ func (ms *musicSession) queueLoop() {
 				return
 			}
 		case <-ticker.C:
-			// update embed
 			ms.updateEmbed()
 		}
 	}
 }
 
 func (ms *musicSession) makeEmbed() *discordgo.MessageEdit {
+	// TO DO: finish this
+
 	me := &discordgo.MessageEdit{}
 	//me.Content = queue
 	em := &discordgo.MessageEmbed{}
@@ -111,11 +133,13 @@ func (ms *musicSession) makeEmbed() *discordgo.MessageEdit {
 
 func (ms *musicSession) updateEmbed() {
 	me := ms.makeEmbed()
-	me.Channel = ms.embedBM.msg.ChannelID
-	me.ID = ms.embedBM.msg.ID
+	me.Channel = ms.embedBM.Msg.ChannelID
+	me.ID = ms.embedBM.Msg.ID
 	err := EditMessage(CommandArgs{sess: ms.sess, chO: ms.musicChan}, me)
+
+	// stop playback if there is no embed
 	if err != nil {
-		ms.stop()
+		ms.Stop()
 	}
 }
 
@@ -136,15 +160,29 @@ func (ms *musicSession) initEmbed() {
 		setGuildMusicEmbed(ms.guild, msg.ID)
 	}
 
+	// destroy old embed if there is one
 	if msg.ID != ms.embedID && ms.embedBM != nil {
 		ms.embedBM.Close <- true
 		ms.embedBM = nil
 	}
 
 	if ms.embedBM == nil {
+		// TO DO: loop and replay
 		bm := ButtonizeMessage(ms.sess, msg)
-		bm.Handle("💯", func(bm *ButtonizedMessage) {
-			fmt.Println("caught 💯")
+		go bm.AddHandler("↪", func(bm *ButtonizedMessage) {
+			//ms.Replay()
+		})
+		go bm.AddHandler("⏹️", func(bm *ButtonizedMessage) {
+			ms.Stop()
+		})
+		go bm.AddHandler("⏯️", func(bm *ButtonizedMessage) {
+			ms.Pause()
+		})
+		go bm.AddHandler("⏭️", func(bm *ButtonizedMessage) {
+			ms.Skip()
+		})
+		go bm.AddHandler("🔄", func(bm *ButtonizedMessage) {
+			//ms.Loop()
 		})
 		go bm.Listen()
 		ms.embedBM = bm
@@ -292,8 +330,8 @@ func init() {
 			}
 			ms := getGuildSession(ca)
 
-			// parse url
-			// get streamurl
+			// TO DO: parse url
+			// get streamurl, length, title, erc...
 			url := "soul.mp3"
 
 			// check if user is in same channel
@@ -324,11 +362,8 @@ func init() {
 			ms.queue = append(ms.queue, s)
 			ms.Unlock()
 
-			// TO DO: update embed
-
 			if playing {
-				fmt.Println("queued")
-				// TO DO: delete ca.msg
+				ca.sess.ChannelMessageDelete(ca.msg.ChannelID, ca.msg.ID)
 				return
 			}
 
@@ -345,68 +380,12 @@ func init() {
 			ms.voiceChan = vch
 			ms.Unlock()
 
-			ms.play()
+			ms.Play()
 			go ms.queueLoop()
-			fmt.Println("playing")
 
-			// TO DO: delete msg
+			ca.sess.ChannelMessageDelete(ca.msg.ChannelID, ca.msg.ID)
 		},
 	})
-
-	RegisterCommand(Command{
-		aliases:  []string{"pause"},
-		help:     "pauses or resumes music",
-		emptyArg: true,
-		callback: func(ca CommandArgs) {
-			if !isMusicChannel(ca) {
-				return
-			}
-			ms := getGuildSession(ca)
-
-			// TO DO: replace setPaused?
-			ms.ffmpeg.SetPaused(!ms.ffmpeg.Paused())
-			// TO DO: delete msg
-		}})
-
-	RegisterCommand(Command{
-		aliases:  []string{"skip"},
-		help:     "skips the current song in the queue",
-		emptyArg: true,
-		callback: func(ca CommandArgs) {
-			if !isMusicChannel(ca) {
-				return
-			}
-			ms := getGuildSession(ca)
-
-			ms.Lock()
-			defer ms.Unlock()
-
-			if ms.playing {
-				ms.ffmpeg.Stop()
-			}
-			// TO DO: delete msg
-		}})
-
-	RegisterCommand(Command{
-		aliases:  []string{"stop"},
-		help:     "stops playing and leaves the channel",
-		emptyArg: true,
-		callback: func(ca CommandArgs) {
-			if !isMusicChannel(ca) {
-				return
-			}
-			ms := getGuildSession(ca)
-
-			ms.Lock()
-			playing := ms.playing
-			ms.Unlock()
-
-			if playing {
-				ms.stop()
-			}
-
-			// TO DO: delete msg
-		}})
 
 	RegisterCommand(Command{
 		aliases: []string{"musicchannel"},
@@ -417,17 +396,20 @@ func init() {
 		emptyArg:  true,
 		adminOnly: true,
 		callback: func(ca CommandArgs) {
+			// keep note of old embed
 			oldem, ok := settingsCache.MusicEmbeds[ca.msg.GuildID]
 
+			// set channel setting
 			setGuildMusicChannel(ca.msg.GuildID, ca.msg.ChannelID)
 
+			// if there is an old embed, delete it
 			if ok {
 				ca.sess.ChannelMessageDelete(ca.msg.ChannelID, oldem)
 			}
 
-			ms := getGuildSession(ca)
-			ms.initEmbed()
+			// call getGuildSession to reinitialize embed
+			getGuildSession(ca)
 
-			// TO DO: delete msg
+			ca.sess.ChannelMessageDelete(ca.msg.ChannelID, ca.msg.ID)
 		}})
 }

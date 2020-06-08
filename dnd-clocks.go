@@ -52,17 +52,17 @@ func drawCircle() {
 	ctx.SavePNG("out.png")
 }
 
-type Point struct {
+type point struct {
 	X, Y float64
 }
 
-func Spike() []Point {
-	poly := make([]Point, 5)
-	poly[0] = Point{0, 0}
-	poly[1] = Point{-1, 1}
-	poly[2] = Point{0, 5}
-	poly[3] = Point{1, 1}
-	poly[4] = Point{0, 0}
+func spike() []point {
+	poly := make([]point, 5)
+	poly[0] = point{0, 0}
+	poly[1] = point{-1, 1}
+	poly[2] = point{0, 5}
+	poly[3] = point{1, 1}
+	poly[4] = point{0, 0}
 	return poly
 }
 
@@ -83,9 +83,9 @@ func drawSpikes() error {
 	ctx.RotateAbout(gg.Radians(180), cx, cy)
 	for i := 0; i < slices; i++ {
 		xscale := 40 / float64(slices)
-		spike := Spike()
+		single := spike()
 		for p := 0; p < 5; p++ {
-			pt := spike[p]
+			pt := single[p]
 			ctx.LineTo(pt.X*xscale+cx, pt.Y*scale+cy)
 		}
 		if ticked > 0 {

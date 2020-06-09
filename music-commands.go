@@ -219,7 +219,7 @@ func init() {
 			// allowed commands in music channel
 			if strings.HasPrefix(ca.content, "volume") || strings.HasPrefix(ca.content, "vol") ||
 				strings.HasPrefix(ca.content, "seek") ||
-				strings.HasSuffix(ca.content, "musicchannel") {
+				strings.HasSuffix(ca.content, "setmusic") {
 				return false
 			}
 
@@ -261,11 +261,11 @@ func init() {
 	})
 
 	RegisterCommand(Command{
-		aliases: []string{"musicchannel"},
-		help: `marks this channel as the music channel\n
+		aliases: []string{"setmusic"},
+		help: `marks this as the music channel\n
 		bot will only listen to this channel for requests
 		all music-related output will be in this channel
-		use %Pmusicchannel again to recreate the embed`,
+		use %setmusic again to recreate the embed`,
 		emptyArg:  true,
 		adminOnly: true,
 		callback: func(ca CommandArgs) bool {

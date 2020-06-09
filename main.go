@@ -128,7 +128,7 @@ func init() {
 			Config.Status = status
 
 			// TO DO: helper func for writing bytes to JSON
-			b, err := json.Marshal(Config)
+			b, err := json.MarshalIndent(Config, "", "\t")
 			if err != nil {
 				fmt.Println("Error marshaling JSON for config.json", err)
 				return false

@@ -225,9 +225,9 @@ func init() {
 
 			// allowed commands in music channel
 			// TO DO: some kind of prefix to allow admin role to bypass?
-			if strings.HasPrefix(ca.content, "volume") || strings.HasPrefix(ca.content, "vol") ||
-				strings.HasPrefix(ca.content, "seek") ||
-				strings.HasSuffix(ca.content, "setmusic") {
+			if strings.Contains(ca.content, "volume") || strings.Contains(ca.content, "vol") ||
+				strings.Contains(ca.content, "seek") ||
+				strings.Contains(ca.content, "setmusic") {
 				return false
 			}
 

@@ -35,6 +35,8 @@ type FFMPEGSession struct {
 
 var frameDuration = 20 // 20, 40, or 60 ms
 
+var ffmpegBinary = "ffmpeg"
+
 // Start an ffmpeg session and begin streaming
 //	`done` channel signals io.EOF for natural end of stream as well as legitimate errors
 func (s *FFMPEGSession) Start(url string, seek int, volume float64, vc *discordgo.VoiceConnection, bitrate int, done chan error) {
@@ -90,7 +92,7 @@ func (s *FFMPEGSession) Start(url string, seek int, volume float64, vc *discordg
 		"pipe:1",
 	}
 
-	cmd := exec.Command("ffmpeg", args...)
+	cmd := exec.Command(ffmpegBinary, args...)
 	s.killDecoder = make(chan int, 1)
 
 	stdout, err := cmd.StdoutPipe()
@@ -332,4 +334,11 @@ func (s *FFMPEGSession) Cleanup() {
 func (s *FFMPEGSession) Stop() {
 	s.Cleanup()
 	s.done <- fmt.Errorf("stopped on request %w", io.EOF)
+}
+
+func init() {
+	if _, err := os.Stat("./ffmpeg"); err == nil {
+		ffmpegBinary = "./ffmpeg"
+		fmt.Println("local ffmpeg found, using ./ffmpeg")
+	}
 }

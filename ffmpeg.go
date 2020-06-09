@@ -55,15 +55,23 @@ func (s *FFMPEGSession) Start(url string, seek int, volume float64, vc *discordg
 	// TO DO: better to kill on pause in music.go instead of pause here? how does buffer react
 
 	args := []string{
-		"-ss", strconv.Itoa(seek),
-		"-i", url,
 
 		"-reconnect", "1",
+		"-reconnect_at_eof", "1",
 		"-reconnect_streamed", "1",
-		"-reconnect_delay_max", "4",
+		"-reconnect_delay_max", "2",
 
 		"-user_agent", userAgent,
 		"-referer", referer,
+
+		"-analyzeduration", "0",
+		"-probesize", "1000000", // 1mb - min 32 default 5000000
+		"-avioflags", "direct",
+		"-fflags", "+fastseek+nobuffer+flush_packets+discardcorrupt",
+		"-flush_packets", "1",
+
+		"-ss", strconv.Itoa(seek),
+		"-i", url, // note where this is! input/output args on -i position
 
 		"-vn",
 		"-map", "0:a",
@@ -71,6 +79,9 @@ func (s *FFMPEGSession) Start(url string, seek int, volume float64, vc *discordg
 		"-acodec", "libopus",
 		"-f", "ogg",
 
+		// TO DO: are these all needed as output too?
+		// analyzeduration and probesize seem to be input-only
+		// but the others don't specify anything in ffmpeg docs...?
 		"-analyzeduration", "0",
 		"-probesize", "1000000", // 1mb - min 32 default 5000000
 		"-avioflags", "direct",
@@ -90,7 +101,7 @@ func (s *FFMPEGSession) Start(url string, seek int, volume float64, vc *discordg
 		"-b:a", strconv.Itoa(bitrate),
 		"-af", fmt.Sprintf("loudnorm,volume=%.2f", volume),
 
-		"-loglevel", "16",
+		"-loglevel", "8", // 16 = all errors, 8 = fatal only
 		"pipe:1",
 	}
 
@@ -112,7 +123,7 @@ func (s *FFMPEGSession) Start(url string, seek int, volume float64, vc *discordg
 	}
 
 	// TO DO: change buffer length?
-	s.frameBuffer = make(chan []byte, frameDuration*5)
+	s.frameBuffer = make(chan []byte, frameDuration*10) // 20*10/100=2s
 	defer close(s.frameBuffer)
 
 	err = cmd.Start()

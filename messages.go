@@ -157,11 +157,18 @@ func SendError(ca CommandArgs, str string) *discordgo.Message {
 			user = u
 		}
 	} else {
-		user = ca.msg.Author
+		if ca.msg != nil && ca.msg.Author != nil {
+			user = ca.msg.Author
+		}
+	}
+
+	icon := ""
+	if user != nil {
+		icon = user.AvatarURL("")
 	}
 
 	msg, err := ca.sess.ChannelMessageSendEmbed(ch, &discordgo.MessageEmbed{Description: ClampStr(str, 2000), Color: 0xff0000,
-		Footer: &discordgo.MessageEmbedFooter{Text: ca.content}, Author: &discordgo.MessageEmbedAuthor{Name: "error", IconURL: user.AvatarURL("")}})
+		Footer: &discordgo.MessageEmbedFooter{Text: ca.content}, Author: &discordgo.MessageEmbedAuthor{Name: "error", IconURL: icon}})
 	if err != nil {
 		err = fmt.Errorf("error sending error in %s: %w", GetChannelName(ca.sess, ch), err)
 		fmt.Println(err)

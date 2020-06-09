@@ -18,6 +18,7 @@ type configJSON struct {
 	Prefixes       []string
 	PrefixOptional bool
 	AdminRole      string
+	Status         string
 }
 
 // Config JSON
@@ -79,8 +80,9 @@ func CacheAdminRoles(s *discordgo.Session) {
 }
 
 func ready(s *discordgo.Session, event *discordgo.Ready) {
-	// TO DO: read from config, save and change on command
-	s.UpdateStatus(0, "doin bot stuff")
+	if Config.Status != "" {
+		s.UpdateStatus(0, Config.Status)
+	}
 
 	// cache admin role IDs
 	AdminRoleCache = make(map[string]string)
@@ -111,6 +113,32 @@ func init() {
 			numRoutines := runtime.NumGoroutine()
 			stats := fmt.Sprintf("`alloc: %.2fMB`\n`stack: %.2fMB`\n`pause: %.2fms`\n`numgo: %d`", mbAlloc, mbStack, pauseTime, numRoutines)
 			QuickEmbed(ca, QEmbed{title: "runtime stats", content: stats})
+			return false
+		}})
+
+	RegisterCommand(Command{
+		aliases:   []string{"setstatus", "status"},
+		help:      "set bot status",
+		ownerOnly: true,
+		callback: func(ca CommandArgs) bool {
+
+			status := ca.args
+			ca.sess.UpdateStatus(0, status)
+
+			Config.Status = status
+
+			// TO DO: helper func for writing bytes to JSON
+			b, err := json.Marshal(Config)
+			if err != nil {
+				fmt.Println("Error marshaling JSON for config.json", err)
+				return false
+			}
+			err = ioutil.WriteFile("./settings/config.json", b, 0644)
+			if err != nil {
+				fmt.Println("Error saving config.json", err)
+				return false
+			}
+
 			return false
 		}})
 }

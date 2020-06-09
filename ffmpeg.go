@@ -109,7 +109,7 @@ func (s *FFMPEGSession) Start(url string, seek int, volume float64, vc *discordg
 	}
 
 	cmd := exec.Command(ffmpegBinary, args...)
-	s.killDecoder = make(chan int, 1)
+	s.killDecoder = make(chan int, 10)
 
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {

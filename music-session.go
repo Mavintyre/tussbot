@@ -345,8 +345,8 @@ func (ms *musicSession) initEmbed() {
 				}
 				ms.Loop()
 			})
+			bm.Listen()
 		}()
-		go bm.Listen()
 		ms.embedBM = bm
 	}
 }

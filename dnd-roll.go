@@ -135,6 +135,7 @@ func init() {
 			}
 
 			// separate roll syntax from tags
+			// TO DO: is it necessary to check length on groups if MustCompile?
 			groups := regex.FindAllStringSubmatch(ca.args, -1)
 			if len(groups) == 0 || len(groups[0]) < 3 {
 				SendError(ca, "error matching regex")
@@ -158,6 +159,7 @@ func init() {
 				modreg := regexp.MustCompile(`([+-]\d+)`)
 				if modreg.MatchString(str) {
 					modmatch := modreg.FindAllString(str, -1)
+					// TO DO: is it necessary to check length on groups if MustCompile?
 					if len(modmatch) < 1 {
 						SendError(ca, "error capturing modifier syntax")
 						return false

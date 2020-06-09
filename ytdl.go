@@ -5,7 +5,9 @@ import (
 	"errors"
 	"fmt"
 	"os/exec"
+	"regexp"
 	"sort"
+	"strconv"
 	"time"
 )
 
@@ -22,6 +24,40 @@ type ytdlJSON struct {
 	Thumbnail string
 	Formats   []ytdlFormat
 	Duration  float64
+}
+
+// ParseSeek string from string (ie "t=20s")
+func ParseSeek(str string) int {
+	regex := regexp.MustCompile(`(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s?)?`)
+	if regex.MatchString(str) {
+		// TO DO: is it necessary to check length on groups if MustCompile?
+		groups := regex.FindAllStringSubmatch(str, -1)
+
+		hours, minutes, seconds := 0, 0, 0
+
+		strH, err := strconv.ParseInt(groups[0][1], 10, 64)
+		if err == nil {
+			hours = int(strH)
+		}
+
+		strM, err := strconv.ParseInt(groups[0][2], 10, 64)
+		if err == nil {
+			minutes = int(strM)
+		}
+
+		strS, err := strconv.ParseInt(groups[0][3], 10, 64)
+		if err == nil {
+			seconds = int(strS)
+		}
+
+		totalSeek := 0
+		totalSeek += seconds
+		totalSeek += minutes * 60
+		totalSeek += hours * 60 * 60
+
+		return totalSeek
+	}
+	return 0
 }
 
 // YTDL runs a youtube-dl child process and returns songInfo for a URL
@@ -86,7 +122,12 @@ func YTDL(url string) (*SongInfo, error) {
 		song.StreamURL = js.Formats[0].URL
 	}
 
-	// TO DO: parse &t=
+	// parse &t=
+	regex := regexp.MustCompile(`t=(.+)`)
+	if regex.MatchString(url) {
+		match := regex.FindAllString(url, -1)
+		song.Seek = ParseSeek(match[0])
+	}
 
 	return song, nil
 }

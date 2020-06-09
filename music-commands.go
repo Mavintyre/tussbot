@@ -307,6 +307,7 @@ func init() {
 
 			ms := getGuildSession(ca)
 
+			// TO DO: cleaner volume func on musicSession
 			ms.Lock()
 			ms.volume = vol
 			ms.Unlock()
@@ -325,12 +326,7 @@ func init() {
 			}
 			ca.sess.ChannelMessageDelete(ca.msg.ChannelID, ca.msg.ID)
 
-			// TO DO: parse seek string, same as in ytdl &t= parsing
-			seek, err := strconv.Atoi(ca.args)
-			if err != nil {
-				SendErrorTemp(ca, fmt.Sprintf("couldn't parse seek: %s", err), errorTimeout)
-				return true
-			}
+			seek := ParseSeek(ca.args)
 
 			ms := getGuildSession(ca)
 			ms.Restart(seek)

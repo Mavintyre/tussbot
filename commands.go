@@ -48,6 +48,11 @@ type CommandArgs struct {
 
 // HandleCommand on message event
 func HandleCommand(s *discordgo.Session, m *discordgo.Message) {
+	// fix discordgo bug
+	if m.Member != nil && m.Member.User == nil {
+		m.Member.User = m.Author
+	}
+
 	defer func() {
 		if r := recover(); r != nil {
 			// get first 15 lines of stack

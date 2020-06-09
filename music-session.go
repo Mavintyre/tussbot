@@ -275,6 +275,20 @@ func (ms *musicSession) updateEmbed() {
 	}
 }
 
+func (ms *musicSession) allowButtons(uid string) bool {
+	ch := ms.musicChan
+	vch, _, err := getVoiceChannel(ms.sess, ch, uid)
+	if err != nil {
+		return false
+	}
+
+	if ms.playing && ms.voiceChan != nil && vch.ID != ms.voiceChan.ID {
+		return false
+	}
+
+	return true
+}
+
 func (ms *musicSession) initEmbed() {
 	ms.Lock()
 	defer ms.Unlock()
@@ -301,20 +315,34 @@ func (ms *musicSession) initEmbed() {
 	if ms.embedBM == nil {
 		bm := ButtonizeMessage(ms.sess, msg)
 		go func() {
-			// TO DO: check if caller is in same voice channel before allowing anything
 			bm.AddHandler("↪", func(bm *ButtonizedMessage, caller *discordgo.Member) {
+				if !ms.allowButtons(caller.User.ID) {
+					return
+				}
 				ms.Replay(caller)
 			})
 			bm.AddHandler("⏹️", func(bm *ButtonizedMessage, caller *discordgo.Member) {
+				if !ms.allowButtons(caller.User.ID) {
+					return
+				}
 				ms.Stop()
 			})
 			bm.AddHandler("⏯️", func(bm *ButtonizedMessage, caller *discordgo.Member) {
+				if !ms.allowButtons(caller.User.ID) {
+					return
+				}
 				ms.Pause()
 			})
 			bm.AddHandler("➡", func(bm *ButtonizedMessage, caller *discordgo.Member) {
+				if !ms.allowButtons(caller.User.ID) {
+					return
+				}
 				ms.Skip()
 			})
 			bm.AddHandler("🔄", func(bm *ButtonizedMessage, caller *discordgo.Member) {
+				if !ms.allowButtons(caller.User.ID) {
+					return
+				}
 				ms.Loop()
 			})
 		}()

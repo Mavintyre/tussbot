@@ -324,7 +324,7 @@ func init() {
 	RegisterCommand(Command{
 		aliases: []string{"seek"},
 		help: `seek some time into the current song\n
-			^%seek 30^`,
+			^%Pseek 30^`,
 		callback: func(ca CommandArgs) bool {
 			if !isMusicChannel(ca) {
 				return false

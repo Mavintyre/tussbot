@@ -217,6 +217,7 @@ func init() {
 			}
 
 			// allowed commands in music channel
+			// TO DO: some kind of prefix to allow admin role to bypass?
 			if strings.HasPrefix(ca.content, "volume") || strings.HasPrefix(ca.content, "vol") ||
 				strings.HasPrefix(ca.content, "seek") ||
 				strings.HasSuffix(ca.content, "setmusic") {
@@ -281,6 +282,9 @@ func init() {
 			}
 
 			// call getGuildSession to reinitialize embed
+			// TO DO: set ms.musicChan manually
+			// if ms is already created, musicChan is never set
+			// to the new channel!
 			getGuildSession(ca)
 
 			// delete message afterwards

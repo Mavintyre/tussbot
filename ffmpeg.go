@@ -66,8 +66,24 @@ func (s *FFMPEGSession) Start(url string, seek int, volume float64, vc *discordg
 		"-user_agent", userAgent,
 		"-referer", referer,
 
+		"-analyzeduration", "0",
+		"-probesize", "1000000", // 1mb - min 32 default 5000000
+		"-avioflags", "direct",
+		"-fflags", "+fastseek+nobuffer+flush_packets+discardcorrupt",
+		"-flush_packets", "1",
+
 		"-ss", strconv.Itoa(seek),
 		"-i", url, // note where this is! input/output args on -i position
+
+		// TO DO: are these all needed as output too?
+		// analyzeduration and probesize seem to be input-only
+		// but the others don't specify anything in ffmpeg docs...?
+		// TO DO: are these even remotely helpful?
+		"-analyzeduration", "0",
+		"-probesize", "1000000", // 1mb - min 32 default 5000000
+		"-avioflags", "direct",
+		"-fflags", "+fastseek+nobuffer+flush_packets+discardcorrupt",
+		"-flush_packets", "1",
 
 		"-vn",
 		"-map", "0:a",
@@ -111,6 +127,11 @@ func (s *FFMPEGSession) Start(url string, seek int, volume float64, vc *discordg
 
 	// TO DO: change buffer length?
 	// bigger buffer = more stable on slower CPUs
+	// TO DO: make stdout read on a separate channel than encoding packets
+	// so ffmpeg can close freely whenever it wants and not stall output
+	//  -- if there's less than this seconds left in the buffer when ffmpeg closes
+	// it stalls the output for some reason? try to read it all asap
+	// rather than just while encoding
 	s.frameBuffer = make(chan []byte, frameDuration*75) // 20*75/100=15s
 	defer close(s.frameBuffer)
 
@@ -130,6 +151,9 @@ func (s *FFMPEGSession) Start(url string, seek int, volume float64, vc *discordg
 	go s.readStdout(stdout, &wg)
 	go s.readStderr(stderr, &wg)
 
+	// wait for groups first so stdout hits EOF naturally
+	// and not a closed pipe instead
+	// TO DO: is this correct?
 	wg.Wait()
 
 	err = cmd.Wait()
@@ -169,33 +193,54 @@ func (s *FFMPEGSession) readStderr(stderr io.ReadCloser, wg *sync.WaitGroup) {
 	stderr.Close()
 }
 
+// >> ogg/helpers.go:
+// func (p *PacketDecoder) DecodeChan(packetChan chan []byte, errorChan chan error) {
+// 	packet, _, err := p.Decode()
+// 	if err != nil {
+// 		errorChan <- err
+// 		return
+// 	}
+// 	packetChan <- packet
+// }
+
 func (s *FFMPEGSession) readStdout(stdout io.ReadCloser, wg *sync.WaitGroup) {
 	defer wg.Done()
 
 	decoder := ogg.NewPacketDecoder(ogg.NewDecoder(stdout))
 
+	// TO DO: include ogg in repo
+
+	// use a channel to get decoded packets
+	// so this loop isn't blocking
+	errChan := make(chan error, 10)
+	packetChan := make(chan []byte, 10)
+	go decoder.DecodeChan(packetChan, errChan)
+
 	skip := 2
 	for {
 		select {
-		// channel required to kill this goroutine as decoder.Decode will block forever
-		// and the chances of us intercepting that are slim to none
 		case <-s.killDecoder:
-			stdout.Close()
+			// TO DO: is this needed?
+			// commenting out to prevent closed pipe error
+			//stdout.Close()
 			return
-		default:
-			packet, _, err := decoder.Decode()
-			if skip > 0 {
-				skip--
-				continue
-			}
+		case err := <-errChan:
 			if err != nil {
+				// TO DO: check for io.ErrClosedPipe?
+				// this shouldn't happen as it means we're not done reading
+				// the full ffmpeg output yet
 				if err != io.EOF && err != io.ErrUnexpectedEOF {
 					s.done <- fmt.Errorf("ffmpeg stdout error: %w", err)
 				}
 				s.frameBuffer <- nil
 				return
 			}
-
+		case packet := <-packetChan:
+			go decoder.DecodeChan(packetChan, errChan)
+			if skip > 0 {
+				skip--
+				continue
+			}
 			s.frameBuffer <- packet
 		}
 	}

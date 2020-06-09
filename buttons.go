@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"sync"
 
 	"github.com/bwmarrin/discordgo"
 )
@@ -22,7 +21,6 @@ type ButtonHandler func(*ButtonizedMessage, *discordgo.Member)
 //	Listen must be called after all handlers are set up
 //	send an int on the Close channel to stop listening
 type ButtonizedMessage struct {
-	sync.Mutex
 	Msg      *discordgo.Message
 	Sess     *discordgo.Session
 	handlers map[string]ButtonHandler
@@ -62,9 +60,7 @@ func (bm *ButtonizedMessage) Listen() {
 // AddHandler for an emoji
 func (bm *ButtonizedMessage) AddHandler(emoji string, handler ButtonHandler) {
 	bm.Sess.MessageReactionAdd(bm.Msg.ChannelID, bm.Msg.ID, emoji)
-	bm.Lock()
 	bm.handlers[emoji] = handler
-	bm.Unlock()
 }
 
 // ButtonizeMessage and return ButtonizedMessage

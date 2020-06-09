@@ -111,13 +111,13 @@ func (ms *musicSession) Replay(caller *discordgo.Member) {
 		return
 	}
 
-	ms.Lock()
 	song := ms.lastSong
 	song.QueuedBy = GetNick(caller)
-	playing := ms.playing
-	ms.Unlock()
 
-	if playing {
+	if ms.playing {
+		ms.Lock()
+		ms.queue = append(ms.queue, song)
+	ms.Unlock()
 		ms.updateEmbed()
 	} else {
 		vs, vch, ok := getVoiceState(ms, ms.sess, ms.musicChan, caller.User.ID)

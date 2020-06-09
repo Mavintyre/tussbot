@@ -64,12 +64,6 @@ func (s *FFMPEGSession) Start(url string, seek int, volume float64, vc *discordg
 		"-user_agent", userAgent,
 		"-referer", referer,
 
-		"-analyzeduration", "0",
-		"-probesize", "1000000", // 1mb - min 32 default 5000000
-		"-avioflags", "direct",
-		"-fflags", "+fastseek+nobuffer+flush_packets+discardcorrupt",
-		"-flush_packets", "1",
-
 		"-ss", strconv.Itoa(seek),
 		"-i", url, // note where this is! input/output args on -i position
 
@@ -78,15 +72,6 @@ func (s *FFMPEGSession) Start(url string, seek int, volume float64, vc *discordg
 
 		"-acodec", "libopus",
 		"-f", "ogg",
-
-		// TO DO: are these all needed as output too?
-		// analyzeduration and probesize seem to be input-only
-		// but the others don't specify anything in ffmpeg docs...?
-		"-analyzeduration", "0",
-		"-probesize", "1000000", // 1mb - min 32 default 5000000
-		"-avioflags", "direct",
-		"-fflags", "+fastseek+nobuffer+flush_packets+discardcorrupt",
-		"-flush_packets", "1",
 
 		"-vbr", "on",
 		"-compression_level", "10", // 0-10, higher = better but slower
@@ -123,7 +108,8 @@ func (s *FFMPEGSession) Start(url string, seek int, volume float64, vc *discordg
 	}
 
 	// TO DO: change buffer length?
-	s.frameBuffer = make(chan []byte, frameDuration*10) // 20*10/100=2s
+	// bigger buffer = more stable on slower CPUs
+	s.frameBuffer = make(chan []byte, frameDuration*75) // 20*75/100=15s
 	defer close(s.frameBuffer)
 
 	err = cmd.Start()

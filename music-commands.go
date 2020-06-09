@@ -218,7 +218,8 @@ func init() {
 
 			// allowed commands in music channel
 			if strings.HasPrefix(ca.content, "volume") || strings.HasPrefix(ca.content, "vol") ||
-				strings.HasPrefix(ca.content, "seek") {
+				strings.HasPrefix(ca.content, "seek") ||
+				strings.HasSuffix(ca.content, "musicchannel") {
 				return false
 			}
 
@@ -252,7 +253,7 @@ func init() {
 				return true
 			}
 
-			song.QueuedBy = ca.msg.Member.Nick
+			song.QueuedBy = GetNick(ca.msg.Member)
 			queueSong(ms, ca.sess, vs, vch, ca.msg.Author.ID, song)
 
 			return true

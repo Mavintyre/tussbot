@@ -62,3 +62,11 @@ func GetRole(s *discordgo.Session, gid string, name string) (*discordgo.Role, er
 	}
 	return nil, fmt.Errorf("role %s not found", name)
 }
+
+// GetNick from a member, or return username if no nickname set
+func GetNick(mem *discordgo.Member) string {
+	if mem.Nick != "" {
+		return mem.Nick
+	}
+	return mem.User.Username
+}

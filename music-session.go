@@ -113,7 +113,7 @@ func (ms *musicSession) Replay(caller *discordgo.Member) {
 
 	ms.Lock()
 	song := ms.lastSong
-	song.QueuedBy = caller.Nick
+	song.QueuedBy = GetNick(caller)
 	playing := ms.playing
 	ms.Unlock()
 

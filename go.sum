@@ -1,3 +1,5 @@
+github.com/DougTy/ogg v0.0.0-20200609100649-ca1630508cc2 h1:dnlJrPE/6XWzIWHzCJ+UkvhM8Og0TECjrtYbowPGyig=
+github.com/DougTy/ogg v0.0.0-20200609100649-ca1630508cc2/go.mod h1:sD3tNXkd15BupfgzlM1LlDF6cmdNaWh7CXs8ezmBGn8=
 github.com/bwmarrin/discordgo v0.20.3 h1:AxjcHGbyBFSC0a3Zx5nDQwbOjU7xai5dXjRnZ0YB7nU=
 github.com/bwmarrin/discordgo v0.20.3/go.mod h1:O9S4p+ofTFwB02em7jkpkV8M3R0/PUVOwN61zSZ0r4Q=
 github.com/fogleman/gg v1.3.0 h1:/7zJX8F6AaYQc57WQCyN9cAIz+4bCJGO9B+dyW29am8=

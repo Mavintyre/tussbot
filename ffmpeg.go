@@ -12,8 +12,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/DougTy/ogg"
 	"github.com/bwmarrin/discordgo"
-	"github.com/dougty/tussbot/ogg" // github.com/jonas747/ogg
 )
 
 var userAgent = `"Mozilla/5.0 (X11; Linux x86_64; rv:77.0) Gecko/20100101 Firefox/77.0"`

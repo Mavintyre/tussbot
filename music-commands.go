@@ -161,9 +161,16 @@ func queueSong(ms *musicSession, sess *discordgo.Session, vs *discordgo.VoiceSta
 		return
 	}
 
+	ms.Lock()
+	ms.playing = true
+	ms.Unlock()
+
 	// join channel
 	vc, err := joinVoiceChannel(sess, vs)
 	if err != nil {
+		ms.Lock()
+		ms.playing = true
+		ms.Unlock()
 		SendErrorTemp(ca, fmt.Sprintf("%s", err), errorTimeout)
 		return
 	}

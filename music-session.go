@@ -66,18 +66,12 @@ func (ms *musicSession) Play() {
 }
 
 func (ms *musicSession) Pause() {
-	ms.Lock()
-	defer ms.Unlock()
-
 	if ms.playing {
 		ms.ffmpeg.SetPaused(!ms.ffmpeg.Paused())
 	}
 }
 
 func (ms *musicSession) Skip() {
-	ms.Lock()
-	defer ms.Unlock()
-
 	if ms.playing {
 		ms.ffmpeg.Stop()
 	}
@@ -117,7 +111,7 @@ func (ms *musicSession) Replay(caller *discordgo.Member) {
 	if ms.playing {
 		ms.Lock()
 		ms.queue = append(ms.queue, song)
-	ms.Unlock()
+		ms.Unlock()
 		ms.updateEmbed()
 	} else {
 		vs, vch, ok := getVoiceState(ms, ms.sess, ms.musicChan, caller.User.ID)
@@ -138,20 +132,14 @@ func (ms *musicSession) disconnectTimeout() {
 	// sleep for timeout delay
 	time.Sleep(time.Duration(timeoutSeconds) * time.Second)
 
-	// get playing state and latest timeout started time
-	ms.Lock()
-	playing := ms.playing
-	startTO := ms.startTO
-	ms.Unlock()
-
 	// if latest timeout was started at a differnt time
 	// than this one, cancel this one as the other is newer
-	if startTO != thisStart {
+	if ms.startTO != thisStart {
 		return
 	}
 
 	// if not playing, stop and disconnect
-	if playing {
+	if ms.playing {
 		return
 	}
 	ms.Stop()
@@ -291,7 +279,6 @@ func (ms *musicSession) allowButtons(uid string) bool {
 
 func (ms *musicSession) initEmbed() {
 	ms.Lock()
-	defer ms.Unlock()
 
 	msg, err := ms.sess.ChannelMessage(ms.musicChan, ms.embedID)
 	if err != nil {
@@ -299,6 +286,7 @@ func (ms *musicSession) initEmbed() {
 		newmsg, err := SendEmbed(CommandArgs{sess: ms.sess, chO: ms.musicChan}, me.Embed)
 		if err != nil {
 			SendErrorTemp(CommandArgs{sess: ms.sess, chO: ms.musicChan}, fmt.Sprintf("couldn't create embed: %s", err), errorTimeout)
+			ms.Unlock()
 			return
 		}
 		msg = newmsg
@@ -312,8 +300,13 @@ func (ms *musicSession) initEmbed() {
 		ms.embedBM = nil
 	}
 
-	if ms.embedBM == nil {
+	if ms.embedBM != nil {
+		ms.Unlock()
+	} else {
 		bm := ButtonizeMessage(ms.sess, msg)
+		ms.embedBM = bm
+		ms.Unlock()
+
 		go func() {
 			bm.AddHandler("↪", func(bm *ButtonizedMessage, caller *discordgo.Member) {
 				if !ms.allowButtons(caller.User.ID) {
@@ -347,7 +340,6 @@ func (ms *musicSession) initEmbed() {
 			})
 			bm.Listen()
 		}()
-		ms.embedBM = bm
 	}
 }
 

@@ -306,8 +306,6 @@ func (s *FFMPEGSession) StartStream() {
 
 // CurrentTime returns current playback position
 func (s *FFMPEGSession) CurrentTime() time.Duration {
-	s.Lock()
-	defer s.Unlock()
 	return time.Duration(s.framesSent*frameDuration) * time.Millisecond
 }
 
@@ -325,9 +323,6 @@ func (s *FFMPEGSession) SetPaused(p bool) {
 
 // Paused returns whether the stream is currently paused
 func (s *FFMPEGSession) Paused() bool {
-	s.Lock()
-	defer s.Unlock()
-
 	return s.paused
 }
 

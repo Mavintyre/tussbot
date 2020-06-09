@@ -191,7 +191,7 @@ func (s *FFMPEGSession) readStdout(stdout io.ReadCloser, wg *sync.WaitGroup) {
 					s.done <- fmt.Errorf("ffmpeg stdout error: %w", err)
 				}
 				s.frameBuffer <- nil
-				break
+				return
 			}
 
 			s.frameBuffer <- packet
@@ -242,7 +242,7 @@ func (s *FFMPEGSession) StartStream() {
 		select {
 		case <-timeout:
 			s.done <- errors.New("voice connection timed out")
-			break
+			return
 		case s.voiceCh.OpusSend <- frame:
 			// packet has been sent
 		}

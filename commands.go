@@ -141,12 +141,12 @@ func HandleCommand(s *discordgo.Session, m *discordgo.Message) {
 
 	// run regex first in case it needs to consume
 	for _, cmd := range CommandList {
-		// TO DO: check after match
-		if !HasAccess(s, cmd, m) {
-			continue
-		}
 		for _, r := range cmd.regexes {
 			if regexp.MustCompile(r).MatchString(m.Content) {
+				if !HasAccess(s, cmd, m) {
+					continue
+				}
+
 				// no args and no alias
 				shouldReturn := cmd.callback(CommandArgs{sess: s, msg: m, content: m.Content, cmd: &cmd})
 				if shouldReturn {
@@ -157,12 +157,12 @@ func HandleCommand(s *discordgo.Session, m *discordgo.Message) {
 	}
 
 	for _, cmd := range CommandList {
-		// TO DO: check after match
-		if !HasAccess(s, cmd, m) {
-			continue
-		}
 		for _, a := range cmd.aliases {
 			if a == mname {
+				if !HasAccess(s, cmd, m) {
+					continue
+				}
+
 				if margs == "" && !cmd.emptyArg {
 					ShowHelp(CommandArgs{sess: s, msg: m}, cmd)
 					return

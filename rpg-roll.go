@@ -298,7 +298,6 @@ func init() {
 				}
 
 				// dm the gm
-				// TO DO: helper for sending DM
 				chG, err := GetDMChannel(ca.sess, gms[0].User.ID)
 				if err != nil {
 					SendError(ca, fmt.Sprintf("error DMing gm: %s", err))

@@ -231,7 +231,8 @@ func init() {
 				return false
 			}
 
-			ca.sess.ChannelMessageDelete(ca.msg.ChannelID, ca.msg.ID)
+			// delete user's message after completion so they don't get confused
+			defer ca.sess.ChannelMessageDelete(ca.msg.ChannelID, ca.msg.ID)
 
 			found := false
 			for _, r := range allowedLinks {
@@ -308,7 +309,7 @@ func init() {
 			if !isMusicChannel(ca) {
 				return false
 			}
-			ca.sess.ChannelMessageDelete(ca.msg.ChannelID, ca.msg.ID)
+			defer ca.sess.ChannelMessageDelete(ca.msg.ChannelID, ca.msg.ID)
 
 			vol, err := strconv.ParseFloat(ca.args, 64)
 			if err != nil {
@@ -336,7 +337,7 @@ func init() {
 			if !isMusicChannel(ca) {
 				return false
 			}
-			ca.sess.ChannelMessageDelete(ca.msg.ChannelID, ca.msg.ID)
+			defer ca.sess.ChannelMessageDelete(ca.msg.ChannelID, ca.msg.ID)
 
 			seek := ParseSeek(ca.args)
 

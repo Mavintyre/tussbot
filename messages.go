@@ -149,7 +149,6 @@ func SendError(ca CommandArgs, str string) *discordgo.Message {
 		ch = ca.msg.ChannelID
 	}
 
-	// TO DO: is there any instance where the author avatar will break this?
 	var user *discordgo.User
 	if ca.usrO != "" {
 		u, err := ca.sess.User(ca.usrO)

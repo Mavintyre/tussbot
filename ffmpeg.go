@@ -193,22 +193,10 @@ func (s *FFMPEGSession) readStderr(stderr io.ReadCloser, wg *sync.WaitGroup) {
 	stderr.Close()
 }
 
-// >> ogg/helpers.go:
-// func (p *PacketDecoder) DecodeChan(packetChan chan []byte, errorChan chan error) {
-// 	packet, _, err := p.Decode()
-// 	if err != nil {
-// 		errorChan <- err
-// 		return
-// 	}
-// 	packetChan <- packet
-// }
-
 func (s *FFMPEGSession) readStdout(stdout io.ReadCloser, wg *sync.WaitGroup) {
 	defer wg.Done()
 
 	decoder := ogg.NewPacketDecoder(ogg.NewDecoder(stdout))
-
-	// TO DO: include ogg in repo
 
 	// use a channel to get decoded packets
 	// so this loop isn't blocking

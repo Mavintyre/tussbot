@@ -94,15 +94,15 @@ func init() {
 	RegisterCommand(Command{
 		aliases: []string{"roll", "r"},
 		help: `roll some dice with realistic probability\n
-		^!roll d6^ - roll a dice with 6 faces
-		^!roll 2d6^ - roll 2 dice with 6 faces
-		^!roll 2d6#^ - roll 2d6 and show their sum
-		^!roll 2d6+1^ - roll 2d6 with a modifier (always shows sum)
-		^!roll 2d6!^ - roll 2d6 with exploding re-rolls
-		^!roll gm 2d6^ - roll that only you and the GM can see
-		^$roll 2d6 3d20^ - roll multiple sets of dice
-		^!roll 2d6 risky standard^ - tag a roll's output
-		^!roll 1dS^ - roll custom dice of name S`,
+		^%Proll d6^ - roll a dice with 6 faces
+		^%Proll 2d6^ - roll 2 dice with 6 faces
+		^%Proll 2d6#^ - roll 2d6 and show their sum
+		^%Proll 2d6+1^ - roll 2d6 with a modifier (always shows sum)
+		^%Proll 2d6!^ - roll 2d6 with exploding re-rolls
+		^%Proll gm 2d6^ - roll that only you and the GM can see
+		^%Proll 2d6 3d20^ - roll multiple sets of dice
+		^%Proll 2d6 risky standard^ - tag a roll's output
+		^%Proll 1dS^ - roll custom dice of name S`,
 		callback: func(ca CommandArgs) bool {
 			// TO DO: custom die
 			//  	- store in guild storage "roll/dice" scope

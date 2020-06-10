@@ -257,7 +257,7 @@ func init() {
 		^%Pclock name +2^ - increase clock by 2 tick
 		^%Pclock name -1^ - decrease clock by 1 tick
 		^%Pclock name delete^ - delete a clock
-		^%Pclock name del^ - delete a clock^`,
+		^%Pclock name del^ - delete a clock`,
 		roles: []string{"gm"},
 		callback: func(ca CommandArgs) bool {
 			// parse argument string

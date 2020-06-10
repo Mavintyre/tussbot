@@ -211,6 +211,8 @@ func (s *FFMPEGSession) readStdout(stdout io.ReadCloser, wg *sync.WaitGroup) {
 			// TO DO: is this needed?
 			// commenting out to prevent closed pipe error
 			//stdout.Close()
+			// send nil to framebuffer to ensure streaming thread closes
+			s.frameBuffer <- nil
 			return
 		case err := <-errChan:
 			if err != nil {

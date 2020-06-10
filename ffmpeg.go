@@ -276,6 +276,9 @@ func (s *FFMPEGSession) StartStream() {
 
 		select {
 		case <-timeout:
+			s.Lock()
+			s.streaming = false
+			s.Unlock()
 			s.done <- errors.New("voice connection timed out")
 			return
 		case s.voiceCh.OpusSend <- frame:

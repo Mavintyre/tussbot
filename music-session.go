@@ -86,7 +86,7 @@ func (ms *musicSession) Stop() {
 		ms.ffmpeg.Stop()
 	}
 
-	if ms.voiceConn != nil {
+	if ms.voiceConn != nil && ms.voiceConn.Ready {
 		ms.voiceConn.Disconnect()
 	}
 }

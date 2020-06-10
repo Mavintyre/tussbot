@@ -232,7 +232,7 @@ func init() {
 		valid styles:
 		 - ^circle^
 		 - ^spikes^`,
-		roles: []string{"gm"},
+		roles: []string{"gm", "botadmin"},
 		callback: func(ca CommandArgs) bool {
 			if ca.args != "circle" && ca.args != "spikes" {
 				SendError(ca, "not a valid clock style\nsee ^%Phelp clockstyle^ for valid styles")
@@ -258,7 +258,6 @@ func init() {
 		^%Pclock name -1^ - decrease clock by 1 tick
 		^%Pclock name delete^ - delete a clock
 		^%Pclock name del^ - delete a clock`,
-		roles: []string{"gm"},
 		callback: func(ca CommandArgs) bool {
 			// parse argument string
 			fields := strings.Fields(ca.args)
@@ -273,6 +272,11 @@ func init() {
 				} else if regexp.MustCompile(`(\d+\/\d+|\d+)`).MatchString(last) {
 					action = "create"
 				}
+			}
+
+			// only allow the gm to manipulate
+			if action != "show" && !HasRole(ca.sess, ca.msg.Member, "gm") {
+				return false
 			}
 
 			name := strings.Join(fields, " ")
@@ -376,7 +380,6 @@ func init() {
 	RegisterCommand(Command{
 		aliases:  []string{"clocks"},
 		help:     `display all clocks`,
-		roles:    []string{"gm"},
 		emptyArg: true,
 		callback: func(ca CommandArgs) bool {
 			gset := guildSettings(ca.msg.GuildID)

@@ -17,7 +17,6 @@ type configJSON struct {
 	OwnerID        string
 	Prefixes       []string
 	PrefixOptional bool
-	AdminRole      string
 	Status         string
 }
 
@@ -63,30 +62,10 @@ func main() {
 	discord.Close()
 }
 
-// AdminRoleCache of admin role ID for a guild
-var AdminRoleCache map[string]string
-
-// CacheAdminRoles [re]generates cache of guild admin role IDs
-// TO DO: (owner) command to regen cache? regen on role edit event? guild create?
-func CacheAdminRoles(s *discordgo.Session) {
-	for _, g := range s.State.Guilds {
-		role, err := GetRole(s, g.ID, Config.AdminRole)
-		if err != nil {
-			fmt.Println("couldn't find admin role in ", g.Name)
-			continue
-		}
-		AdminRoleCache[g.ID] = role.ID
-	}
-}
-
 func ready(s *discordgo.Session, event *discordgo.Ready) {
 	if Config.Status != "" {
 		s.UpdateStatus(0, Config.Status)
 	}
-
-	// cache admin role IDs
-	AdminRoleCache = make(map[string]string)
-	CacheAdminRoles(s)
 }
 
 func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {

@@ -274,8 +274,8 @@ func init() {
 		bot will only listen to this channel for requests
 		all music-related output will be in this channel
 		use %setmusic again to recreate the embed`,
-		emptyArg:  true,
-		adminOnly: true,
+		emptyArg: true,
+		roles:    []string{"botadmin"},
 		callback: func(ca CommandArgs) bool {
 			// keep note of old embed
 			oldem, ok := settingsCache.MusicEmbeds[ca.msg.GuildID]

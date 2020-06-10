@@ -25,7 +25,7 @@ type Command struct {
 	help      string
 	emptyArg  bool
 	hidden    bool
-	adminOnly bool
+	roles     []string
 	ownerOnly bool
 }
 
@@ -44,6 +44,57 @@ type CommandArgs struct {
 	alias   string
 	args    string
 	content string
+}
+
+var roleCache = make(map[string]map[string]string)
+
+// TO DO: what if role ID changes while bot is running?
+func cacheRole(sess *discordgo.Session, gid string, roleName string) bool {
+	_, ok := roleCache[gid][roleName]
+	if ok {
+		return true
+	}
+
+	role, err := GetRole(sess, gid, roleName)
+	if err != nil {
+		return false
+	}
+
+	_, ok = roleCache[gid]
+	if !ok {
+		roleCache[gid] = make(map[string]string)
+	}
+
+	roleCache[gid][roleName] = role.ID
+	return true
+}
+
+// HasAccess checks if user has access to command
+func HasAccess(sess *discordgo.Session, cmd Command, msg *discordgo.Message) bool {
+	if cmd.ownerOnly && msg.Author.ID == Config.OwnerID {
+		return true
+	}
+	if len(cmd.roles) > 0 {
+		if msg.Member == nil {
+			return false
+		}
+
+		for _, roleName := range cmd.roles {
+			ok := cacheRole(sess, msg.GuildID, roleName)
+			if !ok {
+				continue
+			}
+
+			roleID := roleCache[msg.GuildID][roleName]
+			for _, mr := range msg.Member.Roles {
+				if mr == roleID {
+					return true
+				}
+			}
+		}
+		return false
+	}
+	return true
 }
 
 // HandleCommand on message event
@@ -93,14 +144,9 @@ func HandleCommand(s *discordgo.Session, m *discordgo.Message) {
 		margs = split[1]
 	}
 
-	hasAdmin := HasAdmin(m.GuildID, m.Member)
-
 	// run regex first in case it needs to consume
 	for _, cmd := range CommandList {
-		if cmd.ownerOnly && m.Author.ID != Config.OwnerID {
-			continue
-		}
-		if cmd.adminOnly && !hasAdmin {
+		if !HasAccess(s, cmd, m) {
 			continue
 		}
 		for _, r := range cmd.regexes {
@@ -115,10 +161,7 @@ func HandleCommand(s *discordgo.Session, m *discordgo.Message) {
 	}
 
 	for _, cmd := range CommandList {
-		if cmd.ownerOnly && m.Author.ID != Config.OwnerID {
-			continue
-		}
-		if cmd.adminOnly && !hasAdmin {
+		if !HasAccess(s, cmd, m) {
 			continue
 		}
 		for _, a := range cmd.aliases {
@@ -162,21 +205,6 @@ func ShowHelp(ca CommandArgs, cmd Command) {
 	})
 }
 
-// HasAdmin returns true if member has the guild's admin role
-func HasAdmin(gid string, mem *discordgo.Member) bool {
-	if mem == nil {
-		return false
-	}
-
-	grid := AdminRoleCache[gid]
-	for _, mr := range mem.Roles {
-		if mr == grid {
-			return true
-		}
-	}
-	return false
-}
-
 func init() {
 	RegisterCommand(Command{
 		aliases:  []string{"help"},
@@ -184,15 +212,10 @@ func init() {
 		emptyArg: true,
 		help:     ":egg:",
 		callback: func(ca CommandArgs) bool {
-			hasAdmin := HasAdmin(ca.msg.GuildID, ca.msg.Member)
-
 			// show help for a command
 			if ca.args != "" {
 				for _, cmd := range CommandList {
-					if cmd.ownerOnly && ca.msg.Author.ID != Config.OwnerID {
-						continue
-					}
-					if cmd.adminOnly && !hasAdmin {
+					if !HasAccess(ca.sess, cmd, ca.msg) {
 						continue
 					}
 					for _, a := range cmd.aliases {
@@ -208,10 +231,7 @@ func init() {
 
 			var list []string
 			for _, cmd := range CommandList {
-				if cmd.ownerOnly && ca.msg.Author.ID != Config.OwnerID {
-					continue
-				}
-				if cmd.adminOnly && !hasAdmin {
+				if !HasAccess(ca.sess, cmd, ca.msg) {
 					continue
 				}
 				if cmd.hidden {

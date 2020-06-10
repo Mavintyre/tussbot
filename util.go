@@ -70,3 +70,41 @@ func GetNick(mem *discordgo.Member) string {
 	}
 	return mem.User.Username
 }
+
+// HasRole checks if user has a role by name
+func HasRole(sess *discordgo.Session, mem *discordgo.Member, roleName string) bool {
+	if mem == nil {
+		return false
+	}
+
+	gid := mem.GuildID
+	ok := cacheRole(sess, gid, roleName)
+	if !ok {
+		return false
+	}
+
+	roleID := roleCache[gid][roleName]
+	for _, mr := range mem.Roles {
+		if mr == roleID {
+			return true
+		}
+	}
+
+	return false
+}
+
+// FindMembersByRole returns a slice of members in a guild who match a role by name
+func FindMembersByRole(sess *discordgo.Session, gid string, roleName string) ([]*discordgo.Member, error) {
+	guild, err := sess.Guild(gid)
+	if err != nil {
+		return nil, fmt.Errorf("couldn't find guild: %w", err)
+	}
+
+	var out []*discordgo.Member
+	for _, m := range guild.Members {
+		if HasRole(sess, m, roleName) {
+			out = append(out, m)
+		}
+	}
+	return out, nil
+}

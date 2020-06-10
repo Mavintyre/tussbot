@@ -80,16 +80,8 @@ func HasAccess(sess *discordgo.Session, cmd Command, msg *discordgo.Message) boo
 		}
 
 		for _, roleName := range cmd.roles {
-			ok := cacheRole(sess, msg.GuildID, roleName)
-			if !ok {
-				continue
-			}
-
-			roleID := roleCache[msg.GuildID][roleName]
-			for _, mr := range msg.Member.Roles {
-				if mr == roleID {
-					return true
-				}
+			if HasRole(sess, msg.Member, roleName) {
+				return true
 			}
 		}
 		return false
@@ -149,6 +141,7 @@ func HandleCommand(s *discordgo.Session, m *discordgo.Message) {
 
 	// run regex first in case it needs to consume
 	for _, cmd := range CommandList {
+		// TO DO: check after match
 		if !HasAccess(s, cmd, m) {
 			continue
 		}
@@ -164,6 +157,7 @@ func HandleCommand(s *discordgo.Session, m *discordgo.Message) {
 	}
 
 	for _, cmd := range CommandList {
+		// TO DO: check after match
 		if !HasAccess(s, cmd, m) {
 			continue
 		}

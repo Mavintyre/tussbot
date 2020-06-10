@@ -101,8 +101,8 @@ func init() {
 		^%Proll 2d6!^ - roll 2d6 with exploding re-rolls
 		^%Proll gm 2d6^ - roll that only you and the GM can see
 		^%Proll 2d6 3d20^ - roll multiple sets of dice
-		^%Proll 2d6 risky standard^ - tag a roll's output
-		^%Proll 1dS^ - roll custom dice of name S`,
+		^%Proll 2d6 risky standard^ - tag a roll's output`,
+		//^%Proll 1dS^ - roll custom dice of name S`,
 		callback: func(ca CommandArgs) bool {
 			// TO DO: custom die
 			//  	- store in guild storage "roll/dice" scope
@@ -115,23 +115,18 @@ func init() {
 			//		- if !set a die, remove emojis for faces that no longer exist (by name or index?)
 			//		- if !setface remove all old emoji -- if no new emoji is given, emoji is removed
 
-			// TO DO: gm roll
-			//  - store in guild storage "roll/gm" scope
-			//	- get first member of gm role in channel
-			//	- if no gm role or gm member found, error
-			//	- command to set gm role name
-			//	- store role id in per-guild json
-			//	- if gm rolls, send only to gm
-			//	- if player rolls, send to gm and player
-			//	- !setgmrole gm
-			//	- !delgmrole
-			//	- !roll gm 2d6
-
 			// uber regex to check for valid syntax
-			regex := regexp.MustCompile(`^((?:\d*d\d+(?:[+-]\d+)?(?:[!#]+)?\s?)+)\s?([\w ]+)?$`)
+			regex := regexp.MustCompile(`^((?:gm )?(?:\d*d\d+(?:[+-]\d+)?(?:[!#]+)?\s?)+)\s?([\w ]+)?$`)
 			if !regex.MatchString(ca.args) {
 				SendError(ca, "invalid roll parameters\ncheck `%Phelp roll` for usage")
 				return false
+			}
+
+			// gm roll
+			gmRoll := false
+			if strings.HasPrefix(ca.args, "gm") {
+				gmRoll = true
+				ca.args = strings.ReplaceAll(ca.args, "gm ", "")
 			}
 
 			// separate roll syntax from tags
@@ -285,8 +280,44 @@ func init() {
 			if len(results) > 1 {
 				retstr = strings.Join(results, "  **--**  ")
 			}
-			QuickEmbed(ca, QEmbed{content: retstr, footer: tags})
+			qem := QEmbed{content: retstr, footer: tags}
 
+			// handle gm roll
+			if gmRoll {
+				qem.title = fmt.Sprintf("roll by %s", GetNick(ca.msg.Member))
+
+				// find gm in channel
+				gms, err := FindMembersByRole(ca.sess, ca.msg.GuildID, "gm")
+				if err != nil {
+					SendError(ca, fmt.Sprintf("error finding gm: %s", err))
+					return false
+				}
+				if len(gms) < 1 {
+					SendError(ca, "no gm found in this server")
+					return false
+				}
+
+				// dm the gm
+				// TO DO: helper for sending DM
+				chG, err := GetDMChannel(ca.sess, gms[0].User.ID)
+				if err != nil {
+					SendError(ca, fmt.Sprintf("error DMing gm: %s", err))
+					return false
+				}
+				QuickEmbed(CommandArgs{sess: ca.sess, chO: chG.ID}, qem)
+
+				// dm the user
+				chU, err := GetDMChannel(ca.sess, ca.msg.Author.ID)
+				if err != nil {
+					SendError(ca, fmt.Sprintf("error DMing user: %s", err))
+					return false
+				}
+				QuickEmbed(CommandArgs{sess: ca.sess, chO: chU.ID}, qem)
+
+				return false
+			}
+
+			QuickEmbed(ca, qem)
 			return false
 		},
 	})

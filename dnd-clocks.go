@@ -2,10 +2,14 @@ package main
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"math"
+	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -108,9 +112,68 @@ func createClock(style string, slices float64, ticked float64, text string) (io.
 	return buf, nil
 }
 
+type clock struct {
+	Name   string
+	Slices int
+	Ticked int
+}
+
+type guildClockSettings struct {
+	Clocks []*clock
+	Style  string
+}
+
+var clockSettingsCache = make(map[string]*guildClockSettings)
+
+func loadClockSettings() {
+	js, err := ioutil.ReadFile("./settings/clocks.json")
+	if err == nil {
+		err = json.Unmarshal(js, &clockSettingsCache)
+		if err != nil {
+			fmt.Println("JSON error in clocks.json", err)
+		}
+	} else {
+		fmt.Println("Unable to read clocks.json, using empty")
+	}
+}
+
+func saveClockSettings() {
+	// save json
+	b, err := json.Marshal(clockSettingsCache)
+	if err != nil {
+		fmt.Println("Error marshaling JSON for clocks.json", err)
+		return
+	}
+	err = ioutil.WriteFile("./settings/clocks.json", b, 0644)
+	if err != nil {
+		fmt.Println("Error saving clocks.json", err)
+		return
+	}
+}
+
+func guildSettings(gid string) *guildClockSettings {
+	_, ok := clockSettingsCache[gid]
+	if !ok {
+		fmt.Println(clockSettingsCache)
+		clockSettingsCache[gid] = &guildClockSettings{}
+		g := clockSettingsCache[gid]
+		g.Style = "circle"
+	}
+	return clockSettingsCache[gid]
+}
+
+func getClock(gid string, name string) *clock {
+	gset := guildSettings(gid)
+	for _, c := range gset.Clocks {
+		if c.Name == name || strings.HasPrefix(c.Name, name) {
+			return c
+		}
+	}
+	return nil
+}
+
 func init() {
-	// TO DO: save/load clockstyle for guild
-	clockStyle := "circle"
+	loadClockSettings()
 
 	RegisterCommand(Command{
 		aliases: []string{"clockstyle"},
@@ -124,8 +187,12 @@ func init() {
 				SendError(ca, "not a valid clock style\nsee ^%Phelp clockstyle^ for valid styles")
 				return false
 			}
-			clockStyle = ca.args
+
+			gset := guildSettings(ca.msg.GuildID)
+			gset.Style = ca.args
+
 			QuickEmbed(ca, QEmbed{content: "clock style set"})
+			saveClockSettings()
 			return false
 		}})
 
@@ -142,13 +209,115 @@ func init() {
 		^%Pclock name del^ - delete a clock^`,
 		roles: []string{"gm"},
 		callback: func(ca CommandArgs) bool {
-			buf, err := createClock(clockStyle, 4, 1, "something happens")
+			// parse argument string
+			fields := strings.Fields(ca.args)
+			last := fields[len(fields)-1]
+
+			action := "show"
+			if last != ca.args {
+				if last == "del" || last == "delete" {
+					action = "delete"
+				} else if regexp.MustCompile(`[+-]\d+`).MatchString(last) {
+					action = "offset"
+				} else if regexp.MustCompile(`(\d+\/\d+|\d+)`).MatchString(last) {
+					action = "create"
+				}
+			}
+
+			name := strings.Join(fields, " ")
+			if action != "show" {
+				name = strings.Join(fields[:1], " ")
+			}
+
+			// get clock
+			var cl *clock
+			gcl := getClock(ca.msg.GuildID, name)
+			if gcl == nil {
+				// don't error on nil clock if we're making a new one anyway
+				if action != "create" {
+					SendError(ca, "clock not found")
+					return false
+				}
+			}
+			// set clock if not nil
+			if gcl != nil {
+				cl = gcl
+			}
+
+			// handle actions
+			if action == "delete" {
+				gset := guildSettings(ca.msg.GuildID)
+				for i, c := range gset.Clocks {
+					if c.Name == cl.Name {
+						gset.Clocks = append(gset.Clocks[:i], gset.Clocks[i+1:]...)
+						break
+					}
+				}
+				saveClockSettings()
+				QuickEmbed(ca, QEmbed{content: fmt.Sprintf("`%s (%d/%d)` deleted", cl.Name, cl.Ticked, cl.Slices)})
+				return false // don't show clock afterwards
+			} else if action == "offset" {
+				offset, err := strconv.Atoi(last)
+				if err != nil {
+					SendError(ca, "couldn't parse offset")
+					return false
+				}
+
+				cl.Ticked = ClampI(cl.Ticked+offset, 0, cl.Slices)
+				saveClockSettings()
+			} else if action == "create" {
+				ticked := 0
+				slices := 4
+
+				// parse slices & ticked
+				rx := regexp.MustCompile(`(\d+)\/(\d+)`)
+				if rx.MatchString(last) { // "1/4"
+					strTicked := rx.FindAllStringSubmatch(last, -1)[0][1]
+					strSlices := rx.FindAllStringSubmatch(last, -1)[0][2]
+
+					iSlices, err := strconv.Atoi(strSlices)
+					if err != nil {
+						SendError(ca, "couldn't parse slice count")
+						return false
+					}
+
+					iTicked, err := strconv.Atoi(strTicked)
+					if err != nil {
+						SendError(ca, "couldn't parse ticked count")
+						return false
+					}
+
+					slices = iSlices
+					ticked = iTicked
+				} else if regexp.MustCompile(`\d+`).MatchString(last) { // "4" = 0/4
+					lastI, err := strconv.Atoi(last)
+					if err != nil {
+						SendError(ca, "couldn't parse slice count")
+						return false
+					}
+					slices = lastI
+				}
+
+				if cl != nil {
+					// update existing clock
+					cl.Ticked = ticked
+					cl.Slices = slices
+				} else {
+					// create new clock
+					cl = &clock{Name: name, Ticked: ticked, Slices: slices}
+					gset := guildSettings(ca.msg.GuildID)
+					gset.Clocks = append(gset.Clocks, cl)
+				}
+				saveClockSettings()
+			}
+
+			// return clock
+			buf, err := createClock(guildSettings(ca.msg.GuildID).Style, float64(cl.Slices), float64(cl.Ticked), cl.Name)
 			if err != nil {
 				return false
 			}
+			ca.sess.ChannelFileSend(ca.msg.ChannelID, fmt.Sprintf("clock_%s.png", time.Now()), buf)
 
-			clockName := fmt.Sprintf("clock_%s.png", time.Now())
-			ca.sess.ChannelFileSend(ca.msg.ChannelID, clockName, buf)
 			return false
 		}})
 

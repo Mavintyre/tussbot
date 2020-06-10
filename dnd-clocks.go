@@ -1,34 +1,23 @@
 package main
 
 import (
+	"bytes"
 	"errors"
+	"fmt"
+	"io"
 	"math"
 	"strings"
+	"time"
 
 	"github.com/fogleman/gg"
 )
 
-// TO DO: clocks commands
-// - store in guild storage "clocks" scope
-// - !clocks - generate composite image to show all clocks
-//	  - cache clocks in memory (or disk?) as to not regen all at once?
-// - !clock name - display one
-// - !clock name 2/4 - create or set
-// - !clock name +2 - offset
-// - !clock name del[ete] - only command to not upload image
+func drawCircle(ctx *gg.Context, slices float64, ticked float64, cx float64, cy float64, scale float64) {
+	radius := scale * 4.5
 
-func drawCircle() {
-	width, height := 100, 100
-	cx, cy := 50.0, 50.0
-	radius := 30.0
-	border := 2.0
+	angle := 360.0 / (slices / ticked)
 
-	slices := 8.0
-	ticked := 3.0
-
-	angle := 360 / (slices / ticked)
-
-	ctx := gg.NewContext(width, height)
+	ctx.SetLineWidth(2)
 
 	ctx.DrawCircle(cx, cy, radius)
 	ctx.SetHexColor("#40444b")
@@ -40,7 +29,6 @@ func drawCircle() {
 	ctx.Fill()
 
 	ctx.SetHexColor("#202225")
-	ctx.SetLineWidth(border)
 	ctx.DrawCircle(cx, cy, radius)
 	for i := 0.0; i < slices; i++ {
 		x := cx + radius*math.Cos(2.0*math.Pi*i/slices)
@@ -48,8 +36,6 @@ func drawCircle() {
 		ctx.DrawLine(cx, cy, x, y)
 	}
 	ctx.Stroke()
-
-	ctx.SavePNG("out.png")
 }
 
 type point struct {
@@ -66,22 +52,12 @@ func spike() []point {
 	return poly
 }
 
-func drawSpikes() error {
-	width, height := 300, 100
-
-	slices := 6
-	ticked := 2
-
-	cx, cy := 50.0, 50.0
-	scale := 10.0
-
+func drawSpikes(ctx *gg.Context, slices float64, ticked float64, cx float64, cy float64, scale float64) {
 	angle := math.Pi / float64(slices)
-
-	ctx := gg.NewContext(width, height)
 
 	ctx.SetLineWidth(2)
 	ctx.RotateAbout(gg.Radians(180), cx, cy)
-	for i := 0; i < slices; i++ {
+	for i := 0.0; i < slices; i++ {
 		xscale := 40 / float64(slices)
 		single := spike()
 		for p := 0; p < 5; p++ {
@@ -99,20 +75,89 @@ func drawSpikes() error {
 		ticked--
 		ctx.RotateAbout(angle*2, cx, cy)
 	}
+}
+
+func createClock(style string, slices float64, ticked float64, text string) (io.Reader, error) {
+	width, height := 300, 100
+	cx, cy := 50.0, 50.0
+	scale := 10.0
+
+	ctx := gg.NewContext(width, height)
+
+	if style == "circle" {
+		drawCircle(ctx, slices, ticked, cx, cy, scale)
+	} else if style == "spikes" {
+		drawSpikes(ctx, slices, ticked, cx, cy, scale)
+		ctx.RotateAbout(gg.Radians(180), cx, cy) // flip canvas back the right way around
+	}
 
 	if err := ctx.LoadFontFace("/usr/share/fonts/truetype/noto/NotoSerif-Bold.ttf", 18); err != nil {
 		if err := ctx.LoadFontFace("/usr/share/fonts/noto/NotoSerif-Bold.ttf", 18); err != nil {
-			return errors.New("unable to load font")
+			return nil, errors.New("unable to load font")
 		}
 	}
 
 	ctx.SetHexColor("#fff")
-	ctx.RotateAbout(gg.Radians(180), cx, cy)
 	offset := cx + 5*scale + 10
-	ctx.DrawStringWrapped(strings.ToUpper("Crows: Reestablish control of crow's foot"), offset+float64(width/3),
+	ctx.DrawStringWrapped(strings.ToUpper(text), offset+float64(width/3),
 		float64(height)/2, 0.5, 0.5, float64(width)-offset, 1.1, gg.AlignCenter)
 
-	ctx.SavePNG("out.png")
+	buf := new(bytes.Buffer)
+	ctx.EncodePNG(buf)
 
-	return nil
+	return buf, nil
+}
+
+func init() {
+	// TO DO: save/load clockstyle for guild
+	clockStyle := "circle"
+
+	RegisterCommand(Command{
+		aliases: []string{"clockstyle"},
+		help: `set clock style\n
+		valid styles:
+		 - ^circle^
+		 - ^spikes^`,
+		roles: []string{"gm"},
+		callback: func(ca CommandArgs) bool {
+			if ca.args != "circle" && ca.args != "spikes" {
+				SendError(ca, "not a valid clock style\nsee ^%Phelp clockstyle^ for valid styles")
+				return false
+			}
+			clockStyle = ca.args
+			QuickEmbed(ca, QEmbed{content: "clock style set"})
+			return false
+		}})
+
+	RegisterCommand(Command{
+		aliases: []string{"clock"},
+		help: `display or manipulate a clock\n
+		^%Pclock something happens^ - display a clock by name
+		^%Pclock someth^ - display a clock by partial name
+		^%Pclock name 4^ - create clock with 4 slices
+		^%Pclock name 1/4^ - create or update clock with 1/4 slices
+		^%Pclock name +2^ - increase clock by 2 tick
+		^%Pclock name -1^ - decrease clock by 1 tick
+		^%Pclock name delete^ - delete a clock
+		^%Pclock name del^ - delete a clock^`,
+		roles: []string{"gm"},
+		callback: func(ca CommandArgs) bool {
+			buf, err := createClock(clockStyle, 4, 1, "something happens")
+			if err != nil {
+				return false
+			}
+
+			clockName := fmt.Sprintf("clock_%s.png", time.Now())
+			ca.sess.ChannelFileSend(ca.msg.ChannelID, clockName, buf)
+			return false
+		}})
+
+	RegisterCommand(Command{
+		aliases:  []string{"clocks"},
+		help:     `display all clocks`,
+		roles:    []string{"gm"},
+		emptyArg: true,
+		callback: func(ca CommandArgs) bool {
+			return false
+		}})
 }

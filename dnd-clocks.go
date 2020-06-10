@@ -19,10 +19,8 @@ import (
 var clockWidth, clockHeight = 300, 100
 
 func drawCircle(ctx *gg.Context, slices float64, ticked float64, cx float64, cy float64, scale float64) {
-	// TO DO: "clock jasdjjd 3/6" produces 4.5/6 ??
-
 	radius := scale * 4.5
-	angle := math.Pi * (ticked / slices)
+	angle := math.Pi * (ticked / slices) * 2 // unsure why this is *2
 
 	// rotate -90deg ccw so the starting slice is at the top
 	ctx.RotateAbout(gg.Radians(-90), cx, cy)
@@ -34,7 +32,7 @@ func drawCircle(ctx *gg.Context, slices float64, ticked float64, cx float64, cy 
 	ctx.Fill()
 
 	ctx.MoveTo(cx, cy)
-	ctx.DrawArc(cx, cy, radius, 0, angle*ticked)
+	ctx.DrawArc(cx, cy, radius, 0, angle)
 	ctx.SetHexColor("#7289da")
 	ctx.Fill()
 

@@ -203,7 +203,6 @@ func saveClockSettings() {
 func guildSettings(gid string) *guildClockSettings {
 	_, ok := clockSettingsCache[gid]
 	if !ok {
-		fmt.Println(clockSettingsCache)
 		clockSettingsCache[gid] = &guildClockSettings{}
 		g := clockSettingsCache[gid]
 		g.Style = "circle"

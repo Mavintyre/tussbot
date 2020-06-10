@@ -95,6 +95,9 @@ func HandleCommand(s *discordgo.Session, m *discordgo.Message) {
 	if m.Member != nil && m.Member.User == nil {
 		m.Member.User = m.Author
 	}
+	if m.Member != nil && m.Member.GuildID == "" {
+		m.Member.GuildID = m.GuildID
+	}
 
 	defer func() {
 		if r := recover(); r != nil {

@@ -104,13 +104,6 @@ func createClock(style string, slices float64, ticked float64, text string) (*gg
 
 	ctx := gg.NewContext(width, height)
 
-	// transparent is nice but background is needed
-	// so you can see what you're looking at if you click to zoom
-	// TO DO: only fill background for composite?
-	ctx.SetHexColor("#36393f")
-	ctx.DrawRectangle(0, 0, float64(width), float64(height))
-	ctx.Fill()
-
 	if style == "circle" {
 		drawCircle(ctx, slices, ticked, cx, cy, scale)
 	} else if style == "spikes" {
@@ -133,7 +126,7 @@ func createClock(style string, slices float64, ticked float64, text string) (*gg
 
 func createComposite(clocks []*clock, style string) (*gg.Context, error) {
 	numClocks := len(clocks)
-	perRow := 4
+	perRow := 3
 
 	width := clockWidth * perRow
 	if numClocks < perRow {
@@ -142,6 +135,11 @@ func createComposite(clocks []*clock, style string) (*gg.Context, error) {
 	height := clockHeight * int(math.Ceil(float64(numClocks)/float64(perRow)))
 
 	ctx := gg.NewContext(width, height)
+	// transparent is nice but background is needed so you
+	// can see what you're looking at if you click to zoom
+	ctx.SetHexColor("#36393f") // dark discord bg
+	ctx.DrawRectangle(0, 0, float64(width), float64(height))
+	ctx.Fill()
 
 	x, y := 0, 0
 	onRow := 0
@@ -214,9 +212,11 @@ func guildSettings(gid string) *guildClockSettings {
 }
 
 func getClock(gid string, name string) *clock {
+	name = strings.ToLower(name)
 	gset := guildSettings(gid)
 	for _, c := range gset.Clocks {
-		if c.Name == name || strings.HasPrefix(c.Name, name) {
+		cn := strings.ToLower(c.Name)
+		if cn == name || strings.HasPrefix(cn, name) {
 			return c
 		}
 	}
@@ -275,11 +275,9 @@ func init() {
 				}
 			}
 
-			// TO DO: fix multi word names
-			// TO DO: name to lowercase while matching clocks
 			name := strings.Join(fields, " ")
 			if action != "show" {
-				name = strings.Join(fields[:1], " ")
+				name = strings.Join(fields[:len(fields)-1], " ")
 			}
 
 			// get clock

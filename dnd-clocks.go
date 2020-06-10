@@ -16,7 +16,11 @@ import (
 	"github.com/fogleman/gg"
 )
 
+var clockWidth, clockHeight = 300, 100
+
 func drawCircle(ctx *gg.Context, slices float64, ticked float64, cx float64, cy float64, scale float64) {
+	// TO DO: "clock jasdjjd 3/6" produces 4.5/6 ??
+
 	radius := scale * 4.5
 	angle := math.Pi * (ticked / slices)
 
@@ -89,12 +93,25 @@ func drawSpikes(ctx *gg.Context, slices float64, ticked float64, cx float64, cy 
 	ctx.RotateAbout(gg.Radians(180), cx, cy)
 }
 
-func createClock(style string, slices float64, ticked float64, text string) (io.Reader, error) {
-	width, height := 300, 100
+func writePNG(ctx *gg.Context) io.Reader {
+	buf := new(bytes.Buffer)
+	ctx.EncodePNG(buf)
+	return buf
+}
+
+func createClock(style string, slices float64, ticked float64, text string) (*gg.Context, error) {
+	width, height := clockWidth, clockHeight
 	cx, cy := 50.0, 50.0
 	scale := 10.0
 
 	ctx := gg.NewContext(width, height)
+
+	// transparent is nice but background is needed
+	// so you can see what you're looking at if you click to zoom
+	// TO DO: only fill background for composite?
+	ctx.SetHexColor("#36393f")
+	ctx.DrawRectangle(0, 0, float64(width), float64(height))
+	ctx.Fill()
 
 	if style == "circle" {
 		drawCircle(ctx, slices, ticked, cx, cy, scale)
@@ -113,10 +130,39 @@ func createClock(style string, slices float64, ticked float64, text string) (io.
 	ctx.DrawStringWrapped(strings.ToUpper(text), offset+float64(width/3),
 		float64(height)/2, 0.5, 0.5, float64(width)-offset, 1.1, gg.AlignCenter)
 
-	buf := new(bytes.Buffer)
-	ctx.EncodePNG(buf)
+	return ctx, nil
+}
 
-	return buf, nil
+func createComposite(clocks []*clock, style string) (*gg.Context, error) {
+	numClocks := len(clocks)
+	perRow := 4
+
+	width := clockWidth * perRow
+	if numClocks < perRow {
+		width = clockWidth * numClocks
+	}
+	height := clockHeight * int(math.Ceil(float64(numClocks)/float64(perRow)))
+
+	ctx := gg.NewContext(width, height)
+
+	x, y := 0, 0
+	onRow := 0
+	for _, cl := range clocks {
+		c, err := createClock(style, float64(cl.Slices), float64(cl.Ticked), cl.Name)
+		if err != nil {
+			return nil, err
+		}
+		ctx.DrawImage(c.Image(), x, y)
+		x += clockWidth
+		onRow++
+		if onRow == perRow {
+			onRow = 0
+			y += clockHeight
+			x = 0
+		}
+	}
+
+	return ctx, nil
 }
 
 type clock struct {
@@ -231,6 +277,8 @@ func init() {
 				}
 			}
 
+			// TO DO: fix multi word names
+			// TO DO: name to lowercase while matching clocks
 			name := strings.Join(fields, " ")
 			if action != "show" {
 				name = strings.Join(fields[:1], " ")
@@ -319,11 +367,12 @@ func init() {
 			}
 
 			// return clock
-			buf, err := createClock(guildSettings(ca.msg.GuildID).Style, float64(cl.Slices), float64(cl.Ticked), cl.Name)
+			ctx, err := createClock(guildSettings(ca.msg.GuildID).Style, float64(cl.Slices), float64(cl.Ticked), cl.Name)
 			if err != nil {
+				SendError(ca, fmt.Sprintf("error creating clock: %s", err))
 				return false
 			}
-			ca.sess.ChannelFileSend(ca.msg.ChannelID, fmt.Sprintf("clock_%s.png", time.Now()), buf)
+			ca.sess.ChannelFileSend(ca.msg.ChannelID, fmt.Sprintf("clock_%s.png", time.Now()), writePNG(ctx))
 
 			return false
 		}})
@@ -334,6 +383,19 @@ func init() {
 		roles:    []string{"gm"},
 		emptyArg: true,
 		callback: func(ca CommandArgs) bool {
+			gset := guildSettings(ca.msg.GuildID)
+			if len(gset.Clocks) < 1 {
+				SendError(ca, "no clocks in this guild")
+				return false
+			}
+
+			// display composite
+			ctx, err := createComposite(gset.Clocks, gset.Style)
+			if err != nil {
+				SendError(ca, fmt.Sprintf("error creating composite: %s", err))
+				return false
+			}
+			ca.sess.ChannelFileSend(ca.msg.ChannelID, fmt.Sprintf("clock_%s.png", time.Now()), writePNG(ctx))
 			return false
 		}})
 }

@@ -18,8 +18,10 @@ import (
 
 func drawCircle(ctx *gg.Context, slices float64, ticked float64, cx float64, cy float64, scale float64) {
 	radius := scale * 4.5
+	angle := math.Pi * (ticked / slices)
 
-	angle := 360.0 / (slices / ticked)
+	// rotate -90deg ccw so the starting slice is at the top
+	ctx.RotateAbout(gg.Radians(-90), cx, cy)
 
 	ctx.SetLineWidth(2)
 
@@ -28,7 +30,7 @@ func drawCircle(ctx *gg.Context, slices float64, ticked float64, cx float64, cy 
 	ctx.Fill()
 
 	ctx.MoveTo(cx, cy)
-	ctx.DrawArc(cx, cy, radius, gg.Radians(-90), gg.Radians(angle-90))
+	ctx.DrawArc(cx, cy, radius, 0, angle*ticked)
 	ctx.SetHexColor("#7289da")
 	ctx.Fill()
 
@@ -40,6 +42,9 @@ func drawCircle(ctx *gg.Context, slices float64, ticked float64, cx float64, cy 
 		ctx.DrawLine(cx, cy, x, y)
 	}
 	ctx.Stroke()
+
+	// reset canvas rotation
+	ctx.RotateAbout(gg.Radians(90), cx, cy)
 }
 
 type point struct {
@@ -79,6 +84,9 @@ func drawSpikes(ctx *gg.Context, slices float64, ticked float64, cx float64, cy 
 		ticked--
 		ctx.RotateAbout(angle*2, cx, cy)
 	}
+
+	// flip canvas back the right way around
+	ctx.RotateAbout(gg.Radians(180), cx, cy)
 }
 
 func createClock(style string, slices float64, ticked float64, text string) (io.Reader, error) {
@@ -92,7 +100,6 @@ func createClock(style string, slices float64, ticked float64, text string) (io.
 		drawCircle(ctx, slices, ticked, cx, cy, scale)
 	} else if style == "spikes" {
 		drawSpikes(ctx, slices, ticked, cx, cy, scale)
-		ctx.RotateAbout(gg.Radians(180), cx, cy) // flip canvas back the right way around
 	}
 
 	if err := ctx.LoadFontFace("/usr/share/fonts/truetype/noto/NotoSerif-Bold.ttf", 18); err != nil {

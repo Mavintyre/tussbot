@@ -18,6 +18,7 @@ type configJSON struct {
 	Prefixes       []string
 	PrefixOptional bool
 	Status         string
+	SendErrors     bool
 }
 
 // Config JSON

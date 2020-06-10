@@ -114,13 +114,16 @@ func HandleCommand(s *discordgo.Session, m *discordgo.Message) {
 			stack := strings.Join(lines[:15], "\n")
 
 			fmt.Println("<Recovered panic in HandleCommand>\n", stack)
-			ch, err := GetDMChannel(s, Config.OwnerID)
-			if err != nil {
-				fmt.Println("error DMing owner panic log", err)
-				return
+
+			if Config.SendErrors {
+				ch, err := GetDMChannel(s, Config.OwnerID)
+				if err != nil {
+					fmt.Println("error DMing owner panic log", err)
+					return
+				}
+				stack = strings.Replace(stack, "	", ">", -1)
+				SendReply(CommandArgs{sess: s, chO: ch.ID}, fmt.Sprintf("`<Recovered panic in HandleCommand>`\n```%s```", ClampStr(stack, 1957)))
 			}
-			stack = strings.Replace(stack, "	", ">", -1)
-			SendReply(CommandArgs{sess: s, chO: ch.ID}, fmt.Sprintf("`<Recovered panic in HandleCommand>`\n```%s```", ClampStr(stack, 1957)))
 		}
 	}()
 

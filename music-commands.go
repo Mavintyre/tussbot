@@ -15,10 +15,10 @@ import (
 
 var errorTimeout = 5
 
-var allowedLinks = []string{`youtube\.com\/watch\?v=.+`,
-	`youtu\.be\/.+`,
-	`soundcloud\.com\/.+\/.+`,
-	`.+\.bandcamp\.com\/track\/.+`}
+var allowedLinks = []string{`^https:\/\/(?:www.)?youtube\.com\/watch\?v=.+`,
+	`^https:\/\/(?:www.)?youtu\.be\/.+`,
+	`^https:\/\/(?:www.)?soundcloud\.com\/.+\/.+`,
+	`^https:\/\/.+\.bandcamp\.com\/track\/.+`}
 
 func getVoiceChannel(sess *discordgo.Session, ch string, uid string) (*discordgo.Channel, *discordgo.VoiceState, error) {
 	tc, err := sess.State.Channel(ch)

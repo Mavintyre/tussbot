@@ -44,6 +44,7 @@ type musicSession struct {
 	seekStart int
 	seekOv    int
 	restart   bool
+	paused    bool
 }
 
 func (ms *musicSession) Play() {
@@ -62,11 +63,13 @@ func (ms *musicSession) Play() {
 
 	go ms.ffmpeg.Start(song.StreamURL, seek, ms.volume, ms.voiceConn, ms.voiceChan.Bitrate, ms.done)
 	ms.playing = true
+	ms.paused = false
 	ms.updateEmbed()
 }
 
 func (ms *musicSession) Pause() {
 	if ms.playing {
+		ms.paused = !ms.paused
 		ms.ffmpeg.SetPaused(!ms.ffmpeg.Paused())
 		ms.updateEmbed()
 	}
@@ -243,7 +246,7 @@ func (ms *musicSession) makeEmbed() *discordgo.MessageEdit {
 		}
 
 		paused := ""
-		if ms.ffmpeg.Paused() {
+		if ms.paused {
 			paused = "\n(paused)"
 		}
 

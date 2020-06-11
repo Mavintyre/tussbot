@@ -272,9 +272,8 @@ func (s *FFMPEGSession) StartStream() {
 			break
 		}
 
-		// timeout after 100ms
 		// TO DO: is this adequate? too big? too small?
-		timeout := time.After(time.Second)
+		timeout := time.After(time.Second * 5) // 5 seconds
 
 		select {
 		case <-timeout:

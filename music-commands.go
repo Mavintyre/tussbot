@@ -14,9 +14,9 @@ import (
 
 var errorTimeout = 5
 
-var allowedLinks = []string{`^https:\/\/(?:www.)?youtube\.com\/watch\?v=.+`,
-	`^https:\/\/(?:www.)?youtu\.be\/.+`,
-	`^https:\/\/(?:www.)?soundcloud\.com\/.+\/.+`,
+var allowedLinks = []string{`^https:\/\/(?:www\.|m\.)?youtube\.com\/watch\?v=.+`,
+	`^https:\/\/youtu\.be\/.+`,
+	`^https:\/\/(?:www\.)?soundcloud\.com\/.+\/.+`,
 	`^https:\/\/.+\.bandcamp\.com\/track\/.+`}
 
 // links with playlists stall youtube-dl for several minutes

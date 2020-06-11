@@ -7,7 +7,6 @@ import (
 	"io/ioutil"
 	"regexp"
 	"strconv"
-	"strings"
 	"sync"
 
 	"github.com/bwmarrin/discordgo"
@@ -237,12 +236,18 @@ func init() {
 				return false
 			}
 
-			// allowed commands in music channel
-			// TO DO: some kind of prefix to allow admin role to bypass?
-			if strings.Contains(ca.content, "volume") || strings.Contains(ca.content, "vol") ||
-				strings.Contains(ca.content, "seek") ||
-				strings.Contains(ca.content, "setmusic") {
-				return false
+			// get url from args if not regex
+			url := ca.args
+			if ca.isRegex {
+				url = ca.content
+				// allowed commands in music channel
+				// TO DO: some kind of prefix to allow admin role to bypass?
+				if ca.alias == "play" || ca.alias == "p" ||
+					ca.alias == "volume" || ca.alias == "vol" ||
+					ca.alias == "seek" ||
+					ca.alias == "setmusic" {
+					return false
+				}
 			}
 
 			// delete user's message after completion so they don't get confused
@@ -250,8 +255,8 @@ func init() {
 
 			found := false
 			for _, r := range allowedLinks {
-				if regexp.MustCompile(r).MatchString(ca.content) {
-					if isDisallowedLink(ca.content) {
+				if regexp.MustCompile(r).MatchString(url) {
+					if isDisallowedLink(url) {
 						break
 					}
 
@@ -274,7 +279,7 @@ func init() {
 
 			// parse url and queue song
 			// note: ytdl is blocking!
-			song, err := YTDL(ca.content)
+			song, err := YTDL(url)
 			if err != nil {
 				SendErrorTemp(ca, fmt.Sprintf("error querying song: %s", err), errorTimeout)
 				return true

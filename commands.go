@@ -45,6 +45,7 @@ type CommandArgs struct {
 	alias   string
 	args    string
 	content string
+	isRegex bool
 }
 
 var roleCache = make(map[string]map[string]string)
@@ -154,8 +155,8 @@ func HandleCommand(s *discordgo.Session, m *discordgo.Message) {
 					continue
 				}
 
-				// no args and no alias
-				shouldReturn := cmd.callback(CommandArgs{sess: s, msg: m, content: m.Content, cmd: &cmd})
+				// no alias
+				shouldReturn := cmd.callback(CommandArgs{isRegex: true, sess: s, msg: m, args: margs, content: m.Content, alias: mname, cmd: &cmd})
 				if shouldReturn {
 					return
 				}

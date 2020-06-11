@@ -68,6 +68,7 @@ func (ms *musicSession) Play() {
 func (ms *musicSession) Pause() {
 	if ms.playing {
 		ms.ffmpeg.SetPaused(!ms.ffmpeg.Paused())
+		ms.updateEmbed()
 	}
 }
 
@@ -241,8 +242,13 @@ func (ms *musicSession) makeEmbed() *discordgo.MessageEdit {
 			looping = "\n(looping)"
 		}
 
-		em.Footer = &discordgo.MessageEmbedFooter{Text: fmt.Sprintf("current time: %s / %s\nupdates every %ds\nvolume: %.2f%s",
-			fmtDuration(ms.CurrentSeek()), length, embedUpdateFreq, ms.volume, looping)}
+		paused := ""
+		if ms.ffmpeg.Paused() {
+			paused = "\n(paused)"
+		}
+
+		em.Footer = &discordgo.MessageEmbedFooter{Text: fmt.Sprintf("current time: %s / %s\nupdates every %ds\nvolume: %.2f%s%s",
+			fmtDuration(ms.CurrentSeek()), length, embedUpdateFreq, ms.volume, looping, paused)}
 	} else {
 		em.Title = "no song playing"
 		em.Description = "paste in a song link to begin"

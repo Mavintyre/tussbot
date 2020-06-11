@@ -231,6 +231,7 @@ func init() {
 		valid styles:
 		 - ^circle^
 		 - ^spikes^`,
+		noDM:  true,
 		roles: []string{"gm", "botadmin"},
 		callback: func(ca CommandArgs) bool {
 			if ca.args != "circle" && ca.args != "spikes" {
@@ -257,6 +258,7 @@ func init() {
 		^%Pclock name -1^ - decrease clock by 1 tick
 		^%Pclock name delete^ - delete a clock
 		^%Pclock name del^ - delete a clock`,
+		noDM: true,
 		callback: func(ca CommandArgs) bool {
 			// parse argument string
 			fields := strings.Fields(ca.args)
@@ -380,6 +382,7 @@ func init() {
 		aliases:  []string{"clocks"},
 		help:     `display all clocks`,
 		emptyArg: true,
+		noDM:     true,
 		callback: func(ca CommandArgs) bool {
 			gset := guildSettings(ca.msg.GuildID)
 			if len(gset.Clocks) < 1 {

@@ -218,6 +218,7 @@ func init() {
 		command is optional: you can just paste in a URL\n
 		^%Pplay https://www.youtube.com/watch?v=asdf123^
 		^https://www.youtube.com/watch?v=asdf123^`,
+		noDM: true,
 		callback: func(ca CommandArgs) bool {
 			if !isMusicChannel(ca) {
 				return false
@@ -276,6 +277,7 @@ func init() {
 		all music-related output will be in this channel
 		use %setmusic again to recreate the embed`,
 		emptyArg: true,
+		noDM:     true,
 		roles:    []string{"botadmin"},
 		callback: func(ca CommandArgs) bool {
 			// keep note of old embed
@@ -305,6 +307,7 @@ func init() {
 		aliases: []string{"volume", "vol"},
 		help: `change volume\n
 		^%Pvolume 0.5^`,
+		noDM: true,
 		callback: func(ca CommandArgs) bool {
 			if !isMusicChannel(ca) {
 				return false
@@ -333,6 +336,7 @@ func init() {
 		aliases: []string{"seek"},
 		help: `seek some time into the current song\n
 			^%Pseek 30^`,
+		noDM: true,
 		callback: func(ca CommandArgs) bool {
 			if !isMusicChannel(ca) {
 				return false

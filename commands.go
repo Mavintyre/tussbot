@@ -27,6 +27,7 @@ type Command struct {
 	hidden    bool
 	roles     []string
 	ownerOnly bool
+	noDM      bool
 }
 
 // RegisterCommand to the bot
@@ -73,6 +74,9 @@ func cacheRole(sess *discordgo.Session, gid string, roleName string) bool {
 func HasAccess(sess *discordgo.Session, cmd Command, msg *discordgo.Message) bool {
 	if cmd.ownerOnly && msg.Author.ID == Config.OwnerID {
 		return true
+	}
+	if cmd.noDM && msg.Member == nil {
+		return false
 	}
 	if len(cmd.roles) > 0 {
 		if msg.Member == nil {

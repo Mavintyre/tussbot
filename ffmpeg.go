@@ -236,7 +236,7 @@ func (s *FFMPEGSession) readStdout(stdout io.ReadCloser, wg *sync.WaitGroup) {
 	}
 }
 
-// GetFrame returns a single frame of DCA encoded Opus
+// GetFrame returns a single frame of opus
 func (s *FFMPEGSession) GetFrame() (frame []byte, err error) {
 	f := <-s.frameBuffer
 	if f == nil {

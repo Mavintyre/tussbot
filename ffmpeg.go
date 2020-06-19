@@ -298,6 +298,8 @@ func (s *FFMPEGSession) StartStream() {
 
 // CurrentTime returns current playback position
 func (s *FFMPEGSession) CurrentTime() time.Duration {
+	s.Lock()
+	defer s.Unlock()
 	return time.Duration(s.framesSent*frameDuration) * time.Millisecond
 }
 

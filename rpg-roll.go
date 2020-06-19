@@ -281,11 +281,10 @@ func init() {
 				retstr = strings.Join(results, "  **--**  ")
 			}
 			qem := QEmbed{content: retstr, footer: tags}
+			qem.title = fmt.Sprintf("roll by %s", GetNick(ca.msg.Member))
 
 			// handle gm roll
 			if gmRoll {
-				qem.title = fmt.Sprintf("roll by %s", GetNick(ca.msg.Member))
-
 				// find gm in channel
 				gms, err := FindMembersByRole(ca.sess, ca.msg.GuildID, "gm")
 				if err != nil {

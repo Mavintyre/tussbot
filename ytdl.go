@@ -133,8 +133,8 @@ func YTDL(url string) (*SongInfo, error) {
 	// parse &t=
 	regex := regexp.MustCompile(`t=(.+)`)
 	if regex.MatchString(url) {
-		match := regex.FindAllString(url, -1)
-		song.Seek = ParseSeek(match[0])
+		match := regex.FindAllStringSubmatch(url, -1)
+		song.Seek = ParseSeek(match[0][1])
 	}
 
 	return song, nil

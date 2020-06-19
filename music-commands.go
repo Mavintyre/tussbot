@@ -19,19 +19,6 @@ var allowedLinks = []string{`^https:\/\/(?:www\.|m\.)?youtube\.com\/watch\?v=.+`
 	`^https:\/\/(?:www\.)?soundcloud\.com\/.+\/.+`,
 	`^https:\/\/.+\.bandcamp\.com\/track\/.+`}
 
-// links with playlists stall youtube-dl for several minutes
-// TO DO: timeout for YTDL process?
-var disallowedLinks = []string{`list=.+`}
-
-func isDisallowedLink(link string) bool {
-	for _, dr := range disallowedLinks {
-		if regexp.MustCompile(dr).MatchString(link) {
-			return true
-		}
-	}
-	return false
-}
-
 func getVoiceChannel(sess *discordgo.Session, ch string, uid string) (*discordgo.Channel, *discordgo.VoiceState, error) {
 	tc, err := sess.State.Channel(ch)
 	if err != nil {
@@ -256,10 +243,6 @@ func init() {
 			found := false
 			for _, r := range allowedLinks {
 				if regexp.MustCompile(r).MatchString(url) {
-					if isDisallowedLink(url) {
-						break
-					}
-
 					found = true
 					break
 				}

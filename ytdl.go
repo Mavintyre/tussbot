@@ -63,6 +63,14 @@ func ParseSeek(str string) int {
 // YTDL runs a youtube-dl child process and returns songInfo for a URL
 //	Note: function is blocking
 func YTDL(url string) (*SongInfo, error) {
+	// remove list=... from youtube links
+	// as currently this freezes the bot
+	// TO DO: remove when implementing playlists
+	re := regexp.MustCompile(`([&\?]list=[^&]+)`)
+	if re.MatchString(url) {
+		url = re.ReplaceAllString(url, "")
+	}
+
 	args := []string{
 		url,
 		"-J",

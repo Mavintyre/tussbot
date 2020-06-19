@@ -268,6 +268,11 @@ func init() {
 				return true
 			}
 
+			if song.Duration == 0 {
+				SendErrorTemp(ca, "no streams allowed", errorTimeout)
+				return true
+			}
+
 			song.QueuedBy = GetNick(ca.msg.Member)
 			queueSong(ms, ca.sess, vs, vch, ca.msg.Author.ID, song)
 

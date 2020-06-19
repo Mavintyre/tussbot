@@ -76,6 +76,10 @@ func (ms *musicSession) Pause() {
 }
 
 func (ms *musicSession) Skip() {
+	ms.Lock()
+	ms.looping = false
+	ms.Unlock()
+
 	if ms.playing {
 		ms.ffmpeg.Stop()
 	}
@@ -93,6 +97,8 @@ func (ms *musicSession) Stop() {
 	if ms.voiceConn != nil && ms.voiceConn.Ready {
 		ms.voiceConn.Disconnect()
 	}
+
+	ms.looping = false
 }
 
 func (ms *musicSession) Loop() {
@@ -165,7 +171,10 @@ func (ms *musicSession) Restart(seek int) {
 	ms.restart = true
 	ms.Unlock()
 
-	ms.Skip()
+	// call manually instead of using ms.Skip
+	if ms.playing {
+		ms.ffmpeg.Stop()
+	}
 }
 
 func (ms *musicSession) queueLoop() {

@@ -11,7 +11,7 @@ import (
 )
 
 var embedUpdateFreq = 45
-var timeoutSeconds = 60
+var timeoutSeconds = 90
 
 // SongInfo stores data for one song in the queue
 type SongInfo struct {

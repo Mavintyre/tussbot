@@ -45,6 +45,7 @@ type musicSession struct {
 	seekOv    int
 	restart   bool
 	paused    bool
+	running   bool
 }
 
 func (ms *musicSession) Play() {
@@ -178,6 +179,14 @@ func (ms *musicSession) Restart(seek int) {
 }
 
 func (ms *musicSession) queueLoop() {
+	ms.Lock()
+	if ms.running {
+		ms.Unlock()
+		return
+	}
+	ms.running = true
+	ms.Unlock()
+
 	ticker := time.NewTicker(time.Second * time.Duration(embedUpdateFreq))
 	for {
 		select {
@@ -196,6 +205,7 @@ func (ms *musicSession) queueLoop() {
 				ms.playing = false
 				ms.Unlock()
 				ms.updateEmbed()
+				ms.running = false
 				return
 			}
 
@@ -211,6 +221,7 @@ func (ms *musicSession) queueLoop() {
 			} else {
 				ms.Lock()
 				ms.playing = false
+				ms.running = false
 				ms.Unlock()
 				ms.updateEmbed()
 				go ms.disconnectTimeout()

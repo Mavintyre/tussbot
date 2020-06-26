@@ -191,7 +191,7 @@ func init() {
 				}
 
 				// imply # when using sum modifier
-				if modifier > 0 {
+				if modifier != 0 {
 					getSum = true
 				}
 
@@ -265,9 +265,14 @@ func init() {
 					for _, num := range vals {
 						total += num
 					}
-					if modifier > 0 {
+					if modifier != 0 {
 						total += modifier
-						sum = fmt.Sprintf(" *+ %d = **%d***", modifier, total)
+						addsub := "+"
+						if modifier < 0 {
+							addsub = "-"
+							modifier *= -1
+						}
+						sum = fmt.Sprintf(" *%s %d = **%d***", addsub, modifier, total)
 					} else {
 						sum = fmt.Sprintf(" *= %d*", total)
 					}

@@ -332,7 +332,7 @@ func init() {
 		^%Pseed asdf^ - change seed to "asdf"`,
 		emptyArg: true,
 		noDM:     true,
-		roles:    []string{"botadmin"},
+		roles:    []string{"botadmin", "gm"},
 		callback: func(ca CommandArgs) bool {
 			if ca.args == "" && ca.alias == "seed" {
 				QuickEmbed(ca, QEmbed{content: fmt.Sprintf("current seed: %v", seedstr)})

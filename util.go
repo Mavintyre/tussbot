@@ -49,8 +49,8 @@ func GetChannelName(sess *discordgo.Session, id string) string {
 }
 
 // GetRole resolves a role name to object
-func GetRole(s *discordgo.Session, gid string, name string) (*discordgo.Role, error) {
-	roles, err := s.GuildRoles(gid)
+func GetRole(sess *discordgo.Session, gid string, name string) (*discordgo.Role, error) {
+	roles, err := sess.GuildRoles(gid)
 	if err != nil {
 		return nil, fmt.Errorf("error getting role %s: %w", name, err)
 	}

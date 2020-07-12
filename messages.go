@@ -9,12 +9,12 @@ import (
 )
 
 // GetDMChannel finds a user by ID and returns a Channel for DMing them in
-func GetDMChannel(s *discordgo.Session, id string) (*discordgo.Channel, error) {
-	user, err := s.User(id)
+func GetDMChannel(sess *discordgo.Session, id string) (*discordgo.Channel, error) {
+	user, err := sess.User(id)
 	if err != nil {
 		return nil, fmt.Errorf("error getting user to DM: %s", err)
 	}
-	ch, err := s.UserChannelCreate(user.ID)
+	ch, err := sess.UserChannelCreate(user.ID)
 	if err != nil {
 		return nil, fmt.Errorf("error creating DM channel: %w", err)
 	}

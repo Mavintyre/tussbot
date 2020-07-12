@@ -95,7 +95,7 @@ func HasAccess(sess *discordgo.Session, cmd Command, msg *discordgo.Message) boo
 }
 
 // HandleCommand on message event
-func HandleCommand(s *discordgo.Session, m *discordgo.Message) {
+func HandleCommand(sess *discordgo.Session, m *discordgo.Message) {
 	// fix discordgo bug
 	if m.Member != nil && m.Member.User == nil {
 		m.Member.User = m.Author
@@ -116,13 +116,13 @@ func HandleCommand(s *discordgo.Session, m *discordgo.Message) {
 			fmt.Println("<Recovered panic in HandleCommand>\n", stack)
 
 			if Config.SendErrors {
-				ch, err := GetDMChannel(s, Config.OwnerID)
+				ch, err := GetDMChannel(sess, Config.OwnerID)
 				if err != nil {
 					fmt.Println("error DMing owner panic log", err)
 					return
 				}
 				stack = strings.Replace(stack, "	", ">", -1)
-				SendReply(CommandArgs{sess: s, chO: ch.ID}, fmt.Sprintf("`<Recovered panic in HandleCommand>`\n```%s```", ClampStr(stack, 1957)))
+				SendReply(CommandArgs{sess: sess, chO: ch.ID}, fmt.Sprintf("`<Recovered panic in HandleCommand>`\n```%s```", ClampStr(stack, 1957)))
 			}
 		}
 	}()
@@ -151,12 +151,12 @@ func HandleCommand(s *discordgo.Session, m *discordgo.Message) {
 	for _, cmd := range CommandList {
 		for _, r := range cmd.regexes {
 			if regexp.MustCompile(r).MatchString(m.Content) {
-				if !HasAccess(s, cmd, m) {
+				if !HasAccess(sess, cmd, m) {
 					continue
 				}
 
 				// no alias
-				shouldReturn := cmd.callback(CommandArgs{isRegex: true, sess: s, msg: m, args: margs, content: m.Content, alias: mname, cmd: &cmd})
+				shouldReturn := cmd.callback(CommandArgs{isRegex: true, sess: sess, msg: m, args: margs, content: m.Content, alias: mname, cmd: &cmd})
 				if shouldReturn {
 					return
 				}
@@ -167,15 +167,15 @@ func HandleCommand(s *discordgo.Session, m *discordgo.Message) {
 	for _, cmd := range CommandList {
 		for _, a := range cmd.aliases {
 			if a == mname {
-				if !HasAccess(s, cmd, m) {
+				if !HasAccess(sess, cmd, m) {
 					continue
 				}
 
 				if margs == "" && !cmd.emptyArg {
-					ShowHelp(CommandArgs{sess: s, msg: m}, cmd)
+					ShowHelp(CommandArgs{sess: sess, msg: m}, cmd)
 					return
 				}
-				cmd.callback(CommandArgs{sess: s, msg: m, args: margs, content: m.Content, alias: mname, cmd: &cmd})
+				cmd.callback(CommandArgs{sess: sess, msg: m, args: margs, content: m.Content, alias: mname, cmd: &cmd})
 				return
 			}
 		}

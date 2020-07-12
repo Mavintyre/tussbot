@@ -63,19 +63,19 @@ func main() {
 	discord.Close()
 }
 
-func ready(s *discordgo.Session, event *discordgo.Ready) {
+func ready(sess *discordgo.Session, event *discordgo.Ready) {
 	if Config.Status != "" {
-		s.UpdateStatus(0, Config.Status)
+		sess.UpdateStatus(0, Config.Status)
 	}
 }
 
-func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
-	if m.Author.ID == s.State.User.ID {
+func messageCreate(sess *discordgo.Session, m *discordgo.MessageCreate) {
+	if m.Author.ID == sess.State.User.ID {
 		return
 	}
 
 	// "go" is unnecessary here as lib already calls "go messageCreate..."
-	HandleCommand(s, m.Message)
+	HandleCommand(sess, m.Message)
 }
 
 func init() {

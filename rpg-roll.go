@@ -115,181 +115,208 @@ func init() {
 			//		- if !set a die, remove emojis for faces that no longer exist (by name or index?)
 			//		- if !setface remove all old emoji -- if no new emoji is given, emoji is removed
 
-			// uber regex to check for valid syntax
-			regex := regexp.MustCompile(`^((?:gm )?(?:\d*d\d+(?:[+-]\d+)?(?:[!#]+)?\s?)+)\s?([\w ]+)?$`)
-			if !regex.MatchString(ca.args) {
-				SendError(ca, "invalid roll parameters\ncheck `%Phelp roll` for usage")
+			// regex for a single roll expression
+			singleRx := `\d*d\d+[b!]?`
+			singleRxC := regexp.MustCompile(singleRx)
+
+			str := ca.args
+
+			if !singleRxC.MatchString(str) {
+				SendError(ca, "no valid roll expressions found")
 				return false
 			}
 
-			// gm roll
-			gmRoll := false
-			if strings.HasPrefix(ca.args, "gm") {
-				gmRoll = true
-				ca.args = strings.ReplaceAll(ca.args, "gm ", "")
+			// check for gm flag and remove if present
+			isGMRoll := false
+			if strings.HasPrefix(str, "gm") {
+				isGMRoll = true
+				str = str[3:]
 			}
 
-			// separate roll syntax from tags
-			// TO DO: is it necessary to check length on groups if MustCompile?
-			groups := regex.FindAllStringSubmatch(ca.args, -1)
-			if len(groups) == 0 || len(groups[0]) < 3 {
-				SendError(ca, "error matching regex")
-				return false
+			// capture tags and remove if present
+			groups := regexp.MustCompile(`(?:\d|`+singleRx+`)(\s+[\w ]+?$)`).FindAllStringSubmatch(str, -1)
+			tags := ""
+			if len(groups) > 0 && len(groups[0]) > 0 {
+				tags = groups[0][1]
+				str = strings.ReplaceAll(str, tags, "")
+				tags = strings.TrimSpace(tags)
 			}
-			rollstr := groups[0][1]
-			tags := groups[0][2]
 
-			// for each set in rollstr
-			var results []string
-			for _, str := range strings.Fields(rollstr) {
-				var setres []string
+			// replace space with +
+			str = strings.ReplaceAll(str, " ", "+")
 
-				// if no number before 'd', assume 1
-				if str[0] == 'd' {
-					str = "1" + str
+			// remove all spaces
+			str = strings.ReplaceAll(str, " ", "")
+
+			// replace tokens with just one
+			str = regexp.MustCompile(`\++`).ReplaceAllString(str, "+")
+			str = regexp.MustCompile(`-+`).ReplaceAllString(str, "-")
+
+			// add a space before + or -
+			str = strings.ReplaceAll(str, "+", " + ")
+			str = strings.ReplaceAll(str, "-", " - ")
+
+			// replace excess spaces with just one
+			str = regexp.MustCompile(`\s+`).ReplaceAllString(str, " ")
+
+			var results string
+
+			// split into sets of expressions and iterate
+			sum := 0
+			lastOp := "+"
+			lastNum := 0
+			sets := strings.Split(str, " ")
+			for _, expr := range sets {
+				if expr == "+" || expr == "-" {
+					lastOp = expr
+					results += fmt.Sprintf(" *%s* ", expr)
+					continue
 				}
-
-				// sum modifier
-				modifier := 0
-				modreg := regexp.MustCompile(`([+-]\d+)`)
-				if modreg.MatchString(str) {
-					modmatch := modreg.FindAllString(str, -1)
-					// TO DO: is it necessary to check length on groups if MustCompile?
-					if len(modmatch) < 1 {
-						SendError(ca, "error capturing modifier syntax")
-						return false
-					}
-					modstr := modmatch[0]
-					str = strings.Replace(str, modstr, "", -1)
-					mod, err := strconv.Atoi(modstr)
+				if !singleRxC.MatchString(expr) {
+					results += "*" + expr + "*"
+					num, err := strconv.Atoi(expr)
 					if err != nil {
-						SendError(ca, "couldn't parse modifier"+err.Error())
+						SendError(ca, fmt.Sprintf("could not parse modifier: %s", err))
 						return false
 					}
-					modifier = mod
-				}
-
-				// split into value and number of die
-				split := strings.Split(str, "d")
-				if len(split) < 2 {
-					SendError(ca, "error parsing roll string")
-					return false
-				}
-
-				// handle if tail end has exploding or sum syntax tokens
-				exploding := false
-				getSum := false
-				for strings.HasSuffix(split[1], "!") || strings.HasSuffix(split[1], "#") {
-					if strings.HasSuffix(split[1], "!") {
-						exploding = true
-						split[1] = strings.Replace(split[1], "!", "", -1)
+					lastNum = num
+				} else {
+					// assume 1 dice if no number of dice specified before 'd'
+					if expr[0] == 'd' {
+						expr = "1" + expr
 					}
-					if strings.HasSuffix(split[1], "#") {
-						getSum = true
-						split[1] = strings.Replace(split[1], "#", "", -1)
-					}
-				}
 
-				// imply # when using sum modifier
-				if modifier != 0 {
-					getSum = true
-				}
-
-				// parse number of dice and value
-				numDice, err := strconv.Atoi(split[0])
-				if err != nil {
-					// TO DO: replace all instances of the following with sprintf
-					//			""+err.Error
-					//			err.Error
-					//			"",err
-					SendError(ca, "couldn't parse number of dice: "+err.Error())
-					return false
-				}
-				diceVal, err := strconv.Atoi(split[1])
-				if err != nil {
-					SendError(ca, "couldn't parse dice value: "+err.Error())
-					return false
-				}
-
-				// roll die
-				var vals []int
-				if numDice == 1 { // don't bother setting up a ProbTable for just 1 die
-					num := int(rand.Int63n(int64(diceVal)) + 1)
-					vals = append(vals, num)
-				} else { // roll with ProbTable
-					rollVals, err := rollDice(numDice, diceVal)
-					if err != nil {
-						SendError(ca, err.Error())
-						return false
-					}
-					vals = append(vals, rollVals...)
-				}
-
-				// handle exploding die
-				if exploding {
-					for _, num := range vals {
-						if num == diceVal {
-							newNum := int(rand.Int63n(int64(diceVal)) + 1)
-							vals = append(vals, newNum)
-							for newNum == diceVal {
-								newNum = int(rand.Int63n(int64(diceVal)) + 1)
-								vals = append(vals, newNum)
-							}
-
+					// check for exploding and boon tokens
+					isExploding := false
+					isBoon := false
+					for strings.HasSuffix(expr, "!") || strings.HasSuffix(expr, "b") {
+						if strings.HasSuffix(expr, "!") {
+							isExploding = true
+							expr = strings.Replace(expr, "!", "", -1)
+						}
+						if strings.HasSuffix(expr, "b") {
+							isBoon = true
+							expr = strings.Replace(expr, "b", "", -1)
 						}
 					}
-				}
 
-				// handle rolled values
-				for i, num := range vals {
-					wrap := ""
-					spacer := ""
-					if i == numDice {
-						spacer = " ! "
-					} else {
-						spacer = ""
+					// split into numDice and diceVal
+					split := strings.Split(expr, "d")
+					if len(split) < 2 {
+						SendError(ca, fmt.Sprintf("not enough parameters in roll syntax"))
+						return false
 					}
-					if i > numDice-1 {
-						wrap = "*"
-					}
-					if num == diceVal {
-						wrap += "**"
-					}
-					setres = append(setres, fmt.Sprintf("%s%s`[%v]`%s", spacer, wrap, num, wrap))
-				}
 
-				// sum it up
-				sum := ""
-				if getSum {
+					numDice, err := strconv.Atoi(split[0])
+					if err != nil {
+						SendError(ca, fmt.Sprintf("couldn't parse number of dice: %s", err))
+						return false
+					}
+
+					diceVal, err := strconv.Atoi(split[1])
+					if err != nil {
+						SendError(ca, fmt.Sprintf("couldn't parse dice value: %s", err))
+						return false
+					}
+
+					// roll values
+					var vals []int
+					if numDice == 1 { // don't bother setting up a ProbTable for just 1 die
+						num := int(rand.Int63n(int64(diceVal)) + 1)
+						vals = append(vals, num)
+					} else { // roll with ProbTable
+						rollVals, err := rollDice(numDice, diceVal)
+						if err != nil {
+							SendError(ca, err.Error())
+							return false
+						}
+						vals = append(vals, rollVals...)
+					}
+
+					// handle boon rolls
+					var rejectedVals []int
+					if isBoon {
+						highest := 0
+						for _, num := range vals {
+							if num > highest {
+								highest = num
+							} else {
+								rejectedVals = append(rejectedVals, num)
+							}
+						}
+						vals = nil
+						vals = append(vals, highest)
+					}
+
+					// handle exploding die
+					if isExploding {
+						for _, num := range vals {
+							if num == diceVal {
+								newNum := int(rand.Int63n(int64(diceVal)) + 1)
+								vals = append(vals, newNum)
+								for newNum == diceVal {
+									newNum = int(rand.Int63n(int64(diceVal)) + 1)
+									vals = append(vals, newNum)
+								}
+
+							}
+						}
+					}
+
+					// format rolled values
+					results += "("
+					if isBoon {
+						for _, num := range rejectedVals {
+							results += fmt.Sprintf("~~`[%d]`~~ ", num)
+						}
+					}
+					for i, num := range vals {
+						wrap := ""
+						spacer := ""
+						suffix := ""
+						// spacer between values
+						// separate exploded values
+						if i == numDice {
+							spacer = " **!** "
+						} else if i != 0 {
+							spacer = " "
+						}
+						// make exploded values italic
+						// and have a ! suffix
+						if i > numDice-1 {
+							wrap = "*"
+							suffix = "!"
+						}
+						// make crits bold
+						if num == diceVal || num == 1 {
+							wrap += "**"
+						}
+						// add to results string
+						results += fmt.Sprintf("%s%s`[%d%s]`%s", spacer, wrap, num, suffix, wrap)
+					}
+					results += ")"
+
+					// sum the set
 					total := 0
 					for _, num := range vals {
 						total += num
 					}
-					if modifier != 0 {
-						total += modifier
-						addsub := "+"
-						if modifier < 0 {
-							addsub = "-"
-							modifier *= -1
-						}
-						sum = fmt.Sprintf(" *%s %d = **%d***", addsub, modifier, total)
-					} else {
-						sum = fmt.Sprintf(" *= %d*", total)
-					}
+					lastNum = total
 				}
-
-				results = append(results, strings.Join(setres, " ")+sum)
+				if lastOp == "+" {
+					sum += lastNum
+				} else if lastOp == "-" {
+					sum -= lastNum
+				}
 			}
 
-			retstr := results[0]
-			if len(results) > 1 {
-				retstr = strings.Join(results, "  **--**  ")
-			}
-			qem := QEmbed{content: retstr, footer: tags}
+			results += fmt.Sprintf(" *= **%d***", sum)
+
+			qem := QEmbed{content: results, footer: tags}
 			qem.title = fmt.Sprintf("roll by %s", GetNick(ca.msg.Member))
 
 			// handle gm roll
-			if gmRoll {
+			if isGMRoll {
 				// find gm in channel
 				gms, err := FindMembersByRole(ca.sess, ca.msg.GuildID, "gm")
 				if err != nil {

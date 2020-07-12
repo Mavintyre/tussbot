@@ -150,9 +150,10 @@ func init() {
 			// remove all spaces
 			str = strings.ReplaceAll(str, " ", "")
 
-			// replace tokens with just one
+			// replace excess tokens with just one
+			str = strings.ReplaceAll(str, "+-", "-")
+			str = strings.ReplaceAll(str, "-+", "-")
 			str = regexp.MustCompile(`\++`).ReplaceAllString(str, "+")
-			str = regexp.MustCompile(`-+`).ReplaceAllString(str, "-")
 
 			// add a space before + or -
 			str = strings.ReplaceAll(str, "+", " + ")

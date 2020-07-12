@@ -48,29 +48,6 @@ type CommandArgs struct {
 	isRegex bool
 }
 
-var roleCache = make(map[string]map[string]string)
-
-// TO DO: what if role ID changes while bot is running?
-func cacheRole(sess *discordgo.Session, gid string, roleName string) bool {
-	_, ok := roleCache[gid][roleName]
-	if ok {
-		return true
-	}
-
-	role, err := GetRole(sess, gid, roleName)
-	if err != nil {
-		return false
-	}
-
-	_, ok = roleCache[gid]
-	if !ok {
-		roleCache[gid] = make(map[string]string)
-	}
-
-	roleCache[gid][roleName] = role.ID
-	return true
-}
-
 // HasAccess checks if user has access to command
 func HasAccess(sess *discordgo.Session, cmd Command, msg *discordgo.Message) bool {
 	if cmd.ownerOnly && msg.Author.ID == Config.OwnerID {

@@ -10,9 +10,9 @@ import (
 
 // GetDMChannel finds a user by ID and returns a Channel for DMing them in
 func GetDMChannel(sess *discordgo.Session, id string) (*discordgo.Channel, error) {
-	user, err := sess.User(id)
-	if err != nil {
-		return nil, fmt.Errorf("error getting user to DM: %s", err)
+	ok, user := CacheUser(sess, id)
+	if !ok {
+		return nil, fmt.Errorf("error getting user to DM")
 	}
 	ch, err := sess.UserChannelCreate(user.ID)
 	if err != nil {
@@ -151,8 +151,8 @@ func SendError(ca CommandArgs, str string) *discordgo.Message {
 
 	var user *discordgo.User
 	if ca.usrO != "" {
-		u, err := ca.sess.User(ca.usrO)
-		if err != nil {
+		ok, u := CacheUser(ca.sess, ca.usrO)
+		if ok {
 			user = u
 		}
 	} else {

@@ -41,7 +41,7 @@ func ClampStr(str string, max int) string {
 // GetChannelName returns a channel's name or "<unknown channel>"
 func GetChannelName(sess *discordgo.Session, id string) string {
 	channel := "<unknown channel>"
-	ch, err := sess.Channel(id)
+	ch, err := sess.State.Channel(id)
 	if err == nil {
 		channel = ch.Name
 	}
@@ -50,9 +50,10 @@ func GetChannelName(sess *discordgo.Session, id string) string {
 
 // GetRole resolves a role name to object
 func GetRole(sess *discordgo.Session, gid string, name string) (*discordgo.Role, error) {
-	roles, err := sess.GuildRoles(gid)
+	guild, err := sess.State.Guild(gid)
+	roles := guild.Roles
 	if err != nil {
-		return nil, fmt.Errorf("error getting role %s: %w", name, err)
+		return nil, fmt.Errorf("error getting guild for role %s: %w", name, err)
 	}
 	roleName := strings.ToLower(name)
 	for _, role := range roles {
@@ -78,12 +79,11 @@ func HasRole(sess *discordgo.Session, mem *discordgo.Member, roleName string) bo
 	}
 
 	gid := mem.GuildID
-	ok := cacheRole(sess, gid, roleName)
+	ok, roleID := CacheRole(sess, gid, roleName)
 	if !ok {
 		return false
 	}
 
-	roleID := roleCache[gid][roleName]
 	for _, mr := range mem.Roles {
 		if mr == roleID {
 			return true
@@ -95,7 +95,7 @@ func HasRole(sess *discordgo.Session, mem *discordgo.Member, roleName string) bo
 
 // FindMembersByRole returns a slice of members in a guild who match a role by name
 func FindMembersByRole(sess *discordgo.Session, gid string, roleName string) ([]*discordgo.Member, error) {
-	guild, err := sess.Guild(gid)
+	guild, err := sess.State.Guild(gid)
 	if err != nil {
 		return nil, fmt.Errorf("couldn't find guild: %w", err)
 	}

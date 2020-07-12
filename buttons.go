@@ -41,7 +41,7 @@ func (bm *ButtonizedMessage) Listen() {
 
 					handler, ok := bm.handlers[emoji]
 					if ok {
-						mem, err := bm.Sess.GuildMember(ev.GuildID, ev.UserID)
+						mem, err := bm.Sess.State.Member(ev.GuildID, ev.UserID)
 						if err != nil {
 							fmt.Println("couldn't get member for button event")
 							handler(bm, nil)

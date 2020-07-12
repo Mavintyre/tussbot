@@ -239,9 +239,12 @@ func init() {
 					// handle boon rolls
 					var rejectedVals []int
 					if isBoon {
-						highest := 0
+						highest := -1
 						for _, num := range vals {
 							if num > highest {
+								if highest != -1 {
+									rejectedVals = append(rejectedVals, highest)
+								}
 								highest = num
 							} else {
 								rejectedVals = append(rejectedVals, num)

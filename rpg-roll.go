@@ -119,7 +119,7 @@ func init() {
 			singleRx := `\d*d\d+[b!]?`
 			singleRxC := regexp.MustCompile(singleRx)
 
-			str := ca.args
+			str := strings.ToLower(ca.args)
 
 			if !singleRxC.MatchString(str) {
 				SendError(ca, "no valid roll expressions found")

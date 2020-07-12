@@ -105,7 +105,7 @@ func HandleCommand(sess *discordgo.Session, m *discordgo.Message) {
 	}()
 
 	split := strings.SplitN(m.Content, " ", 2)
-	mname := split[0]
+	mname := strings.ToLower(split[0])
 
 	// prefixes are optional!
 	if len(mname) > 1 {
@@ -123,6 +123,8 @@ func HandleCommand(sess *discordgo.Session, m *discordgo.Message) {
 	if len(split) > 1 {
 		margs = split[1]
 	}
+
+	margs = strings.TrimSpace(margs)
 
 	// run regex first in case it needs to consume
 	for _, cmd := range CommandList {

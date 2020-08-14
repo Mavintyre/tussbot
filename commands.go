@@ -109,7 +109,7 @@ func HandleCommand(sess *discordgo.Session, m *discordgo.Message) {
 
 	// prefixes are optional!
 	if len(mname) > 1 {
-		if Config.PrefixOptional {
+		if !Config.PrefixOptional {
 			for _, p := range Config.Prefixes {
 				if string(mname[0]) == p {
 					mname = mname[1:]

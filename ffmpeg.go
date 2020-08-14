@@ -258,6 +258,9 @@ func (s *FFMPEGSession) StartStream() {
 	s.streaming = true
 	s.Unlock()
 
+	numTimeouts := 0
+	maxTimeouts := 10
+
 	for {
 		s.Lock()
 		if s.paused {
@@ -272,18 +275,22 @@ func (s *FFMPEGSession) StartStream() {
 			break
 		}
 
-		// TO DO: is this adequate? too big? too small?
-		timeout := time.After(time.Second * 5) // 5 seconds
+		loss := time.After(time.Second * 1)
 
 		select {
-		case <-timeout:
-			s.Lock()
-			s.streaming = false
-			s.Unlock()
-			s.done <- errors.New("voice connection timed out")
-			return
+		case <-loss:
+			numTimeouts++
+			if numTimeouts >= maxTimeouts {
+				s.Lock()
+				s.streaming = false
+				s.Unlock()
+				s.done <- errors.New("voice connection timed out")
+				return
+			}
+			break
 		case s.voiceCh.OpusSend <- frame:
-			// packet has been sent
+			numTimeouts = 0
+			break
 		}
 
 		s.Lock()

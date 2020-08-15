@@ -107,16 +107,19 @@ func HandleCommand(sess *discordgo.Session, m *discordgo.Message) {
 	split := strings.SplitN(m.Content, " ", 2)
 	mname := strings.ToLower(split[0])
 
-	// prefixes are optional!
+	foundPrefix := false
 	if len(mname) > 1 {
-		if !Config.PrefixOptional {
-			for _, p := range Config.Prefixes {
-				if string(mname[0]) == p {
-					mname = mname[1:]
-					break
-				}
+		for _, p := range Config.Prefixes {
+			if string(mname[0]) == p {
+				mname = mname[1:]
+				foundPrefix = true
+				break
 			}
 		}
+	}
+
+	if !Config.PrefixOptional && !foundPrefix {
+		return
 	}
 
 	margs := ""
